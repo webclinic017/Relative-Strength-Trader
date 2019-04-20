@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.chart.CategoryAxis?>
+<?import javafx.scene.chart.LineChart?>
+<?import javafx.scene.chart.NumberAxis?>
+<?import javafx.scene.chart.PieChart?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.effect.*?>
+<?import javafx.scene.layout.Pane?>
+<TabPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="530.0"
+         prefWidth="700.0" tabClosingPolicy="UNAVAILABLE" xmlns="http://javafx.com/javafx/8"
+         xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.pfeiffercapital.rst.MainController">
+    <tabs>
+        <Tab text="Live Trading">
+            <content>
+                <Pane prefHeight="530.0" prefWidth="700.0">
+                    <children>
+                        <Button id="buttonConnectTWS" fx:id="buttonConnectTWS" layoutX="15.0" layoutY="461.0"
+                                mnemonicParsing="false" onMouseClicked="#buttonConnectTWSClick" text="Connect to TWS"/>
+                        <TableView fx:id="tableViewPositions" layoutX="14.0" layoutY="25.0" prefHeight="190.0"
+                                   prefWidth="673.0">
+                            <columns>
+                                <TableColumn fx:id="columnTicker" prefWidth="50.0" text="Ticker"/>
+                                <TableColumn fx:id="columnShares" prefWidth="60.0" text="Shares"/>
+                                <TableColumn fx:id="columnSharePrice" prefWidth="103.0" text="Bought at [USD]"/>
+                                <TableColumn fx:id="columnMarketPrice" prefWidth="92.0" text="Current [USD]"/>
+                                <TableColumn fx:id="columnPositionValue" minWidth="0.0" prefWidth="109.0"
+                                             text="Pos. value [USD]"/>
+                                <TableColumn fx:id="columnProfitPercent" minWidth="0.0" prefWidth="64.0"
+                                             text="Profit %"/>
+                                <TableColumn fx:id="columnAbsoluteProfit" prefWidth="85.0" text="Abs. Profit"/>
+                            </columns>
+                        </TableView>
+                        <Button fx:id="buttonConnectTWSColor" cacheShape="false" centerShape="false"
+                                focusTraversable="false" layoutX="123.0" layoutY="461.0" mnemonicParsing="false"
+                                opacity="0.55" prefHeight="25.0" prefWidth="24.0" scaleShape="false">
+                            <effect>
+                                <Lighting diffuseConstant="1.42">
+                                    <bumpInput>
+                                        <ColorInput/>
+                                    </bumpInput>
+                                    <light>
+                                        <Light.Distant color="#ff2e2e"/>
+                                    </light>
+                                </Lighting>
+                            </effect>
+                        </Button>
+                        <Button fx:id="buttonTradeLive" disable="true" layoutX="168.0" layoutY="461.0"
+                                mnemonicParsing="false" onAction="#buttonTradeLiveClick" text="Trade Live"/>
+                        <Button fx:id="buttonTradeLiveColor" cacheShape="false" centerShape="false" disable="true"
+                                focusTraversable="false" layoutX="245.0" layoutY="461.0" mnemonicParsing="false"
+                                opacity="0.55" prefHeight="25.0" prefWidth="24.0" scaleShape="false">
+                            <effect>
+                                <Lighting diffuseConstant="1.42">
+                                    <bumpInput>
+                                        <ColorInput/>
+                                    </bumpInput>
+                                    <light>
+                                        <Light.Distant color="#ff2c2c"/>
+                                    </light>
+                                </Lighting>
+                            </effect>
+                        </Button>
+                        <TextArea fx:id="textAreaLiveLogging" layoutX="13.0" layoutY="233.0" prefHeight="202.0"
+                                  prefWidth="674.0"/>
+                        <Label layoutX="504.0" layoutY="457.0" text="Next Signals:"/>
+                        <Label fx:id="labelNextSignal" layoutX="594.0" layoutY="457.0" text="0"/>
+                        <Button fx:id="buttonRequestUpdate" layoutX="290.0" layoutY="461.0" mnemonicParsing="false"
+                                onAction="#buttonRequestUpdateClick" text="Update"/>
+                        <Label layoutX="504.0" layoutY="474.0" text="Current equity:"/>
+                        <Label fx:id="labelCurrentEquity" layoutX="594.0" layoutY="474.0" text="0"/>
+                        <Label layoutX="14.0" layoutY="6.0" text="Currently held positions:"/>
+                    </children>
+                </Pane>
+            </content>
+        </Tab>
+        <Tab text="Statistics">
+            <content>
+                <Pane prefHeight="200.0" prefWidth="200.0">
+                    <children>
+                        <LineChart layoutX="14.0" layoutY="69.0" prefHeight="307.0" prefWidth="454.0">
+                            <xAxis>
+                                <CategoryAxis side="BOTTOM"/>
+                            </xAxis>
+                            <yAxis>
+                                <NumberAxis side="LEFT"/>
+                            </yAxis>
+                        </LineChart>
+                        <PieChart layoutX="476.0" layoutY="76.0" prefHeight="192.0" prefWidth="160.0"/>
+                        <Label layoutX="487.0" layoutY="25.0" text="Positions"/>
+                        <Label layoutX="49.0" layoutY="25.0" text="(not sure what could go here, or other tabs)"/>
+                    </children>
+                </Pane>
+            </content>
+        </Tab>
+    </tabs>
+</TabPane>
