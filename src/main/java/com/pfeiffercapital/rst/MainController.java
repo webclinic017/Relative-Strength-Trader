@@ -54,7 +54,7 @@ public class MainController implements EWrapper, EnvironmentAware {
     static com.ib.client.EReaderSignal readerSignal;
     static com.ib.client.EClientSocket clientSocket;
     static com.ib.client.EReader reader;
-    static int currentOrderId = 0;
+    static int nextValidOrderID = -1;
 
     // Workflows
     static TradeWorkflow tradeWorkflow = null;
@@ -489,6 +489,7 @@ public class MainController implements EWrapper, EnvironmentAware {
 
     @Override
     public void accountDownloadEnd(String s) {
+        System.out.println("In accountDownloadEnd");
         // fill the missing positions with cash
         while (TradeWorkflow.getCurrentlyHeldPositions().size() != NUMBER_OF_POSITIONS_TO_HOLD) {
             TradeWorkflow.getCurrentlyHeldPositions().add(new Position());
@@ -514,7 +515,8 @@ public class MainController implements EWrapper, EnvironmentAware {
         log(LogLevel.FILE, "TWS connection established");
         connectedToTWS = true;
         Platform.runLater(this::updateUI);
-
+        nextValidOrderID = i;
+        System.out.println("nextValidId: " + i);
         //}
     }
 

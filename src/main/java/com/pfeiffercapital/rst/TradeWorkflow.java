@@ -58,6 +58,11 @@ public class TradeWorkflow implements Runnable {
             positionsToSell.clear();
 
             MainController.clientSocket.reqAccountUpdates(true, MainController.env.getProperty("workflow.accountID"));
+            try {
+                Thread.sleep(1500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             MainController.clientSocket.reqAccountUpdates(false, MainController.env.getProperty("workflow.accountID"));
         }
 
@@ -139,7 +144,7 @@ public class TradeWorkflow implements Runnable {
             order.transmit(transmitFlag);
             pos.getContract().exchange("SMART");
 
-            MainController.clientSocket.placeOrder(++MainController.currentOrderId, pos.getContract(), order);
+            MainController.clientSocket.placeOrder(++MainController.nextValidOrderID, pos.getContract(), order);
 
             GUILogQueue.add("Placed order for selling [" + pos + "]");
             FILELogQueue.add("Placed order for selling [" + pos + "]");
@@ -266,8 +271,8 @@ public class TradeWorkflow implements Runnable {
                 contract.symbol("");
                 contract.conid(272093);
             }
-            //System.out.println("OrderID when buying " + signal + ": " + MainController.currentOrderId);
-            MainController.clientSocket.placeOrder(++MainController.currentOrderId, contract, order);
+            System.out.println("OrderID when buying " + signal + ": " + MainController.nextValidOrderID);
+            MainController.clientSocket.placeOrder(++MainController.nextValidOrderID, contract, order);
 
             GUILogQueue.add("Placed order for buying [" + signal + "]");
             FILELogQueue.add("Placed order for buying [" + signal + "]");
