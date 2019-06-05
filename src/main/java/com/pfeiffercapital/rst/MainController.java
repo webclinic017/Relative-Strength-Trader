@@ -164,6 +164,7 @@ public class MainController implements EWrapper, EnvironmentAware {
         DATA_QUERY_LINK = env.getProperty("util.dataquerylink");
 
         TradeWorkflow.setTransmitFlag(Boolean.valueOf(env.getProperty("workflow.transmitflag")));
+        TradeWorkflow.setTestMode(Boolean.valueOf(env.getProperty("test.mode")));
     }
 
     @Override

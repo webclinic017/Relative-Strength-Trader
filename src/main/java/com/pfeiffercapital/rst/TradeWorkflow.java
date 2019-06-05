@@ -24,6 +24,7 @@ public class TradeWorkflow implements Runnable {
     private static boolean active = false;
     private static boolean running = false;
     private static boolean transmitFlag = false;
+    private static boolean testMode = false;
     private static ArrayList<Position> currentlyHeldPositions = new ArrayList<>();
     private static ArrayList<String> signals = new ArrayList<>();
     private static ArrayList<String> signalsToBuy = new ArrayList<>();
@@ -31,6 +32,10 @@ public class TradeWorkflow implements Runnable {
     private static Map<String, Double> signalPrices = new HashMap<>();
     private static Map<String, Integer> shareAmountsToBuy = new HashMap<>();
     private static String accountCurrency = "USD";
+
+    public static void setTestMode(boolean testMode) {
+        TradeWorkflow.testMode = testMode;
+    }
 
 
     @Override
@@ -137,8 +142,10 @@ public class TradeWorkflow implements Runnable {
             Order order = new Order();
             order.action("SELL");
             order.orderType("MOC");
+            if(testMode)
+                order.orderType("MKT");
             order.totalQuantity(pos.shares);
-            order.tif("OPG");
+            order.tif("DAY");
             order.account(pos.accountName);
             order.orderRef("test order");
             order.transmit(transmitFlag);
@@ -256,6 +263,8 @@ public class TradeWorkflow implements Runnable {
             Order order = new Order();
             order.action("BUY");
             order.orderType("MOC");
+            if(testMode)
+                order.orderType("MKT");
             order.totalQuantity(amount);
             order.transmit(transmitFlag);
             order.account(MainController.ACCOUNT_ID);
