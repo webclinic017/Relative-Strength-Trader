@@ -21,6 +21,7 @@ public class TradeWorkflow implements Runnable {
     static ArrayList<String> GUILogQueue = new ArrayList<>();
     static ArrayList<String> FILELogQueue = new ArrayList<>();
 
+
     private static boolean active = false;
     private static boolean running = false;
     private static boolean transmitFlag = false;
@@ -29,6 +30,10 @@ public class TradeWorkflow implements Runnable {
     private static ArrayList<String> signals = new ArrayList<>();
     private static ArrayList<String> signalsToBuy = new ArrayList<>();
     private static ArrayList<Position> positionsToSell = new ArrayList<>();
+
+    private static HashMap<Integer,Double> orderIdToRemainingToBeFilled = new HashMap<>();
+    private static HashMap<Integer,String> orderStatuses = new HashMap<>();
+    private static HashMap<Integer,String> orderIdToSmybol = new HashMap<>();
     private static Map<String, Double> signalPrices = new HashMap<>();
     private static Map<String, Integer> shareAmountsToBuy = new HashMap<>();
     private static String accountCurrency = "USD";
@@ -41,7 +46,6 @@ public class TradeWorkflow implements Runnable {
     @Override
     public void run() {
 
-        System.out.println("I'm here for the " + (++counter) + "th time");
         if (active) {
             running = true;
 
@@ -61,10 +65,13 @@ public class TradeWorkflow implements Runnable {
             signals.clear();
             signalsToBuy.clear();
             positionsToSell.clear();
+            orderIdToRemainingToBeFilled.clear();
+            orderStatuses.clear();
+            orderIdToSmybol.clear();
 
             MainController.clientSocket.reqAccountUpdates(true, MainController.env.getProperty("workflow.accountID"));
             try {
-                Thread.sleep(1500);
+                Thread.sleep(1000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -75,7 +82,7 @@ public class TradeWorkflow implements Runnable {
 
     public static void sellPositions() {
         System.out.println("Selling positions");
-        readSignalsFromFile();
+
 
         // determining which tickers to sell and buy
         for (String signal : signals) {
@@ -85,20 +92,17 @@ public class TradeWorkflow implements Runnable {
                 signalsToBuy.add(signal);
             }
         }
-        System.out.println("1");
         for (Position pos : currentlyHeldPositions) {
             if (!signals.contains(pos.getSymbol())) {
                 positionsToSell.add(pos);
             }
         }
 
-        //DEBUG
         try {
             Thread.sleep(500);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        System.out.println("2");
 
 
         GUILogQueue.add("Currently holding: " +
@@ -109,33 +113,16 @@ public class TradeWorkflow implements Runnable {
         FILELogQueue.add("Selling: " + positionsToSell);
         GUILogQueue.add("Buying: " + signalsToBuy);
         FILELogQueue.add("Selling: " + signalsToBuy);
-        /*
-        MainController.logger.log(LogLevel.GUI,"Currently holding: " +
-                MainController.currentlyHeldPositions.stream().map(p -> p.getSymbol()).collect(Collectors.toList()));
-        MainController.logger.log(LogLevel.FILE,"Currently holding: " +
-                MainController.currentlyHeldPositions.stream().map(p -> p.getSymbol()).collect(Collectors.toList()));
-        MainController.logger.log(LogLevel.GUI,"Selling: " + positionsToSell);
-        MainController.logger.log(LogLevel.FILE,"Selling: " + positionsToSell);
-        MainController.logger.log(LogLevel.GUI,"Buying: " + signalsToBuy);
-        MainController.logger.log(LogLevel.FILE,"Selling: " + signalsToBuy);
-        */
 
-        System.out.println("3");
-
-        //DEBUG
         try {
             Thread.sleep(500);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        System.out.println("4");
 
 
         // selling
         for (Position pos : positionsToSell) {
-            String a = pos.getSymbol();
-            a += "jojo";
-            System.out.println(a);
             if (pos.getSymbol().equals("CASH")) {
                 continue;
             }
@@ -147,21 +134,21 @@ public class TradeWorkflow implements Runnable {
             order.totalQuantity(pos.shares);
             order.tif("DAY");
             order.account(pos.accountName);
-            order.orderRef("test order");
+            order.orderRef("MOC sell order for " + pos);
+            if(testMode)
+                order.orderRef("MKT sell order for " + pos);
             order.transmit(transmitFlag);
             pos.getContract().exchange("SMART");
 
             MainController.clientSocket.placeOrder(++MainController.nextValidOrderID, pos.getContract(), order);
+            orderIdToRemainingToBeFilled.put(MainController.nextValidOrderID, pos.shares);
+            orderStatuses.put(MainController.nextValidOrderID, "none");
+            orderIdToSmybol.put(MainController.nextValidOrderID, pos.getSymbol());
+            System.out.println("OrderID when selling " + pos.getSymbol() + ": " + MainController.nextValidOrderID);
 
             GUILogQueue.add("Placed order for selling [" + pos + "]");
             FILELogQueue.add("Placed order for selling [" + pos + "]");
-
-            /*
-            MainController.logger.log(LogLevel.GUI,"Placed order for seeling [" + pos + "]");
-            MainController.logger.log(LogLevel.FILE,"Placed order for seeling [" + pos + "]");
-            */
         }
-        System.out.println("5 (finished selling positions)");
 
     }
 
@@ -280,23 +267,34 @@ public class TradeWorkflow implements Runnable {
                 contract.symbol("");
                 contract.conid(272093);
             }
-            System.out.println("OrderID when buying " + signal + ": " + MainController.nextValidOrderID);
+
             MainController.clientSocket.placeOrder(++MainController.nextValidOrderID, contract, order);
+            orderIdToRemainingToBeFilled.put(MainController.nextValidOrderID, (double) amount);
+            orderStatuses.put(MainController.nextValidOrderID, "none");
+            orderIdToSmybol.put(MainController.nextValidOrderID, signal);
+            System.out.println("OrderID when buying " + signal + ": " + MainController.nextValidOrderID);
 
             GUILogQueue.add("Placed order for buying [" + signal + "]");
             FILELogQueue.add("Placed order for buying [" + signal + "]");
+
+            GUILogQueue.add("Orders are executing...");
+            FILELogQueue.add("Orders are executing...");
             /*
             MainController.logger.log(LogLevel.GUI,"Placed order for buying [" + signal + "]");
             MainController.logger.log(LogLevel.FILE,"Placed order for buying [" + signal + "]");
             */
         }
 
+        //obsolete, since set to false in central control method (accountDownloadEnd)
         running = false;
 
+        /*
         GUILogQueue.add("TradeWorkflow finished");
         FILELogQueue.add("TradeWorkflow finished");
         GUILogQueue.add("------------------------------------------------------------------");
         FILELogQueue.add("------------------------------------------------------------------");
+        */
+
 
         /*
         MainController.logger.log(LogLevel.GUI,"TradeWorkflow finished");
@@ -311,8 +309,8 @@ public class TradeWorkflow implements Runnable {
         signals.clear();
         signalsToBuy.clear();
 
-        GUILogQueue.add("Reading signal file");
-        FILELogQueue.add("Reading signal file");
+        GUILogQueue.add("Reading signal file...");
+        FILELogQueue.add("Reading signal file...");
 
         /*
         MainController.logger.log(LogLevel.GUI,"Reading signal file");
@@ -413,6 +411,10 @@ public class TradeWorkflow implements Runnable {
         return accountCurrency;
     }
 
+    public static HashMap<Integer, Double> getOrderIdToRemainingToBeFilled() {
+        return orderIdToRemainingToBeFilled;
+    }
+
     public static void setAccountCurrency(String value) {
         accountCurrency = value;
     }
@@ -424,4 +426,13 @@ public class TradeWorkflow implements Runnable {
     public static void addToFILEQueue(String s) {
         FILELogQueue.add(s);
     }
+
+    public static HashMap<Integer, String> getOrderStatuses() {
+        return orderStatuses;
+    }
+
+    public static HashMap<Integer, String> getOrderIdToSmybol() {
+        return orderIdToSmybol;
+    }
+
 }

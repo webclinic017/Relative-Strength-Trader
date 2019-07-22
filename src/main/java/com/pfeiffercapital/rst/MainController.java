@@ -30,6 +30,7 @@ public class MainController implements EWrapper, EnvironmentAware {
 
     // DEBUG
     static int messagesReceived = 0;
+    static String logBoxText = "";
 
     @Autowired
     static Environment env;
@@ -204,6 +205,11 @@ public class MainController implements EWrapper, EnvironmentAware {
         if (connectedToTWS) {
             TradeWorkflow.clearCurrentlyHeldPositions();
             clientSocket.reqAccountUpdates(true, ACCOUNT_ID);
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             clientSocket.reqAccountUpdates(false, ACCOUNT_ID);
         }
         Platform.runLater(this::flushTradingWorkflowQueues);
@@ -381,11 +387,11 @@ public class MainController implements EWrapper, EnvironmentAware {
     }
 
     public void log(LogLevel level, String s) {
-
         try {
             if (level == LogLevel.GUI && textAreaLiveLogging != null) {
                 DateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
                 Date date = new Date();
+                logBoxText += "[" + dateFormat.format(date) + "] " + s + "\n";
                 String text = textAreaLiveLogging.getText();
                 textAreaLiveLogging.setText( text + "[" + dateFormat.format(date) + "] " + s + "\n");
 
@@ -406,6 +412,8 @@ public class MainController implements EWrapper, EnvironmentAware {
                 }
             }
         } catch (Exception e) {
+            textAreaLiveLogging = new TextArea();
+            textAreaLiveLogging.setText(logBoxText);
             System.out.println("What I wanted to print: " + s);
             e.printStackTrace();
         }
@@ -447,6 +455,32 @@ public class MainController implements EWrapper, EnvironmentAware {
 
     @Override
     public void orderStatus(int i, String s, double v, double v1, double v2, int i1, int i2, double v3, int i3, String s1, double v4) {
+        //DEBUG
+        //System.out.print("\n__________________________________\n");
+        //System.out.print(i + "\n" + s +"\n" + v + "\n" + v1 );
+
+        //not used yet
+        TradeWorkflow.getOrderIdToRemainingToBeFilled().put(i, v1);
+
+        if(!TradeWorkflow.getOrderStatuses().get(i).equals("Filled") &&
+            s.equals("Filled")){
+            log(LogLevel.GUI, "Successfully executed [" + TradeWorkflow.getOrderIdToSmybol().get(i) +  "] order");
+        }
+        TradeWorkflow.getOrderStatuses().put(i, s);
+
+        for(Integer orderId : TradeWorkflow.getOrderStatuses().keySet()){
+            if(!TradeWorkflow.getOrderStatuses().get(orderId).equals("Filled"))
+                return;
+        }
+
+        log(LogLevel.GUI, "Orders have successfully been filled");
+        log(LogLevel.FILE, "Orders have successfully been filled");
+
+        log(LogLevel.GUI,"TradeWorkflow finished");
+        log(LogLevel.FILE,"TradeWorkflow finished");
+        log(LogLevel.GUI,"------------------------------------------------------------------");
+        log(LogLevel.FILE,"------------------------------------------------------------------");
+
 
     }
 
@@ -492,15 +526,18 @@ public class MainController implements EWrapper, EnvironmentAware {
     public void accountDownloadEnd(String s) {
         System.out.println("In accountDownloadEnd");
         // fill the missing positions with cash
-        while (TradeWorkflow.getCurrentlyHeldPositions().size() != NUMBER_OF_POSITIONS_TO_HOLD) {
+        while (TradeWorkflow.getCurrentlyHeldPositions().size() < NUMBER_OF_POSITIONS_TO_HOLD) {
             TradeWorkflow.getCurrentlyHeldPositions().add(new Position());
         }
 
         if (TradeWorkflow.getRunning()) {
+            TradeWorkflow.readSignalsFromFile();
             TradeWorkflow.sellPositions();
             TradeWorkflow.acquireMarketData();
             TradeWorkflow.buyPositions();
             TradeWorkflow.setRunning(false);
+            //log(LogLevel.GUI, "Orders are executing...");
+            //log(LogLevel.FILE, "Orders are executing...");
         }
         Platform.runLater(this::flushTradingWorkflowQueues);
         Platform.runLater(this::updateUI);
