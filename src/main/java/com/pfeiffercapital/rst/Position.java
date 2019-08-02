@@ -14,6 +14,7 @@ public class Position {
     double averageCost;
     double unrealizedPNL;
     double realizedPNL;
+    double PNLinPercent;
     String accountName;
 
     public Position(Contract c, double v, double v1, double v2, double v3, double v4, double v5, String account) {
@@ -25,6 +26,7 @@ public class Position {
         this.averageCost = v3;
         this.unrealizedPNL = v4;
         this.realizedPNL = v5;
+        this.PNLinPercent = ((v1/v3)-1)*100;
         this.accountName = account;
 
     }
@@ -38,6 +40,7 @@ public class Position {
         this.averageCost = 0;
         this.unrealizedPNL = 0;
         this.realizedPNL = 0;
+        this.PNLinPercent = 0;
         this.accountName = "";
 
     }
@@ -54,6 +57,7 @@ public class Position {
             this.averageCost = Double.parseDouble(df.format(position.averageCost).replaceAll(",", "."));
             this.unrealizedPNL = Double.parseDouble(df.format(position.unrealizedPNL).replaceAll(",", "."));
             this.realizedPNL = Double.parseDouble(df.format(position.realizedPNL).replaceAll(",", "."));
+            this.PNLinPercent = Double.parseDouble(df.format(position.PNLinPercent).replaceAll(",", "."));
             this.accountName = position.accountName;
         } else {
             this.contract = position.contract;
@@ -64,6 +68,7 @@ public class Position {
             this.averageCost = position.averageCost;
             this.unrealizedPNL = position.unrealizedPNL;
             this.realizedPNL = position.realizedPNL;
+            this.PNLinPercent = position.PNLinPercent;
             this.accountName = position.accountName;
         }
     }
@@ -127,6 +132,14 @@ public class Position {
 
     public void setUnrealizedPNL(double unrealizedPNL) {
         this.unrealizedPNL = unrealizedPNL;
+    }
+
+    public double getPNLinPercent() {
+        return PNLinPercent;
+    }
+
+    public void setPNLinPercent(double PNLinPercent) {
+        this.PNLinPercent = PNLinPercent;
     }
 
     public double getRealizedPNL() {

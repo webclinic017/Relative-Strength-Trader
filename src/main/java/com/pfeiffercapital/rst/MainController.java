@@ -48,6 +48,8 @@ public class MainController implements EWrapper, EnvironmentAware {
     static String RENAMING_CRON_EXPRESSION;
     static String LOGFILE_PATH;
     static String SIGNALFILE_PATH;
+    static String BALANCEFILE_PATH;
+    static String AMBIGUOUS_SYMBOLS_FILE_PATH;
     static String DATA_QUERY_LINK;
 
 
@@ -79,6 +81,8 @@ public class MainController implements EWrapper, EnvironmentAware {
     private Button buttonRequestUpdate;
     @FXML
     private Button buttonConnectTWSColor;
+    @FXML
+    private Button buttonStartWorkflow;
     @FXML
     private TextArea textAreaLiveLogging;
     @FXML
@@ -147,10 +151,9 @@ public class MainController implements EWrapper, EnvironmentAware {
 
         UIPositionList = FXCollections.observableArrayList(TradeWorkflow.getCurrentlyHeldPositions());
         tableViewPositions.setItems(UIPositionList);
-    }
+        buttonStartWorkflow.setDisable(!ALLOW_MANUAL_WORKFLOW_START);
 
-    //private void setLogger(){ if(logger == null) logger = new Logger(textAreaLiveLogging);
-    //}
+    }
 
     private void initializeFromPropertiesFile() {
         TWSIP = env.getProperty("tws.ip");
@@ -160,8 +163,11 @@ public class MainController implements EWrapper, EnvironmentAware {
         NUMBER_OF_POSITIONS_TO_HOLD = Integer.valueOf(env.getProperty("workflow.numberOfPositionsToHold"));
         TRADING_CRON_EXPRESSION = env.getProperty("workflow.trading.crontrigger");
         RENAMING_CRON_EXPRESSION = env.getProperty("workflow.renaming.crontrigger");
+        ALLOW_MANUAL_WORKFLOW_START = Boolean.valueOf((env.getProperty("workflow.trading.allowManualWorkflowStart")));
         LOGFILE_PATH = env.getProperty("path.logfile");
         SIGNALFILE_PATH = env.getProperty("path.signalfile");
+        BALANCEFILE_PATH = env.getProperty("path.balancefile");
+        AMBIGUOUS_SYMBOLS_FILE_PATH = env.getProperty("path.ambiguoussymbolsfile");
         DATA_QUERY_LINK = env.getProperty("util.dataquerylink");
 
         TradeWorkflow.setTransmitFlag(Boolean.valueOf(env.getProperty("workflow.transmitflag")));
@@ -202,17 +208,14 @@ public class MainController implements EWrapper, EnvironmentAware {
     @FXML
     public void buttonRequestUpdateClick() {
         TradeWorkflow.readSignalsFromFile();
-        if (connectedToTWS) {
-            TradeWorkflow.clearCurrentlyHeldPositions();
-            clientSocket.reqAccountUpdates(true, ACCOUNT_ID);
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            clientSocket.reqAccountUpdates(false, ACCOUNT_ID);
-        }
-        Platform.runLater(this::flushTradingWorkflowQueues);
+        getHeldPositions();
+    }
+
+    @FXML
+    public void buttonStartWorkflowClick() {
+        System.out.println("Start workflow button");
+        Thread thread = new Thread(new TradeWorkflow());
+        thread.run();
     }
 
     private void connectTWS() {
@@ -317,63 +320,7 @@ public class MainController implements EWrapper, EnvironmentAware {
         return tradeWorkflow;
     }
 
-    /*
-    class Logger{
-        TextArea textArea;
 
-        public Logger(TextArea textArea){
-            if (textArea == null) {
-                this.textArea = textAreaLiveLogging;
-            }
-        }
-
-        public static void flushTradingWorkflowQueues(){
-            Platform.
-            for (String s : TradeWorkflow.GUILogQueue){
-                log(LogLevel.GUI,s);
-            }
-            for (String s : TradeWorkflow.FILELogQueue){
-                log(LogLevel.FILE,s);
-            }
-            TradeWorkflow.GUILogQueue.clear();
-            TradeWorkflow.FILELogQueue.clear();
-
-        }
-
-        public void log(LogLevel level ,String s){
-            if (textArea == null) {
-                textArea = textAreaLiveLogging;
-                System.out.println("Textarea is null");
-            }
-
-            try {
-                if (level == LogLevel.GUI && textArea != null) {
-                    DateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
-                    Date date = new Date();
-                    textArea.setText(textArea.getText() + "[" + dateFormat.format(date) + "] " + s + "\n");
-                }
-                if (level == LogLevel.FILE) {
-                    try {
-                        DateFormat dateFormat = new SimpleDateFormat("dd_MM_yyyy");
-                        Date date = new Date();
-                        BufferedWriter writer = null;
-                        writer = new BufferedWriter(new FileWriter(LOGFILE_PATH + dateFormat.format(date)
-                                + "_log.txt", true));
-                        dateFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
-                        writer.append("[" + dateFormat.format(date) + "] " + s);
-                        writer.append('\n');
-                        writer.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-            } catch (Exception e){
-                System.out.println("What I wanted to print: " + s);
-                e.printStackTrace();
-            }
-        }
-    }
-    */
 
     public void flushTradingWorkflowQueues() {
         for (String s : TradeWorkflow.GUILogQueue) {
@@ -417,7 +364,7 @@ public class MainController implements EWrapper, EnvironmentAware {
             System.out.println("What I wanted to print: " + s);
             e.printStackTrace();
         }
-
+        textAreaLiveLogging.appendText("");
     }
 
 
@@ -459,6 +406,9 @@ public class MainController implements EWrapper, EnvironmentAware {
         //System.out.print("\n__________________________________\n");
         //System.out.print(i + "\n" + s +"\n" + v + "\n" + v1 );
 
+        if(TradeWorkflow.getOrderStatuses().isEmpty())
+            return;
+
         //not used yet
         TradeWorkflow.getOrderIdToRemainingToBeFilled().put(i, v1);
 
@@ -473,6 +423,8 @@ public class MainController implements EWrapper, EnvironmentAware {
                 return;
         }
 
+        TradeWorkflow.writeBalanceFile();
+
         log(LogLevel.GUI, "Orders have successfully been filled");
         log(LogLevel.FILE, "Orders have successfully been filled");
 
@@ -481,7 +433,24 @@ public class MainController implements EWrapper, EnvironmentAware {
         log(LogLevel.GUI,"------------------------------------------------------------------");
         log(LogLevel.FILE,"------------------------------------------------------------------");
 
+        TradeWorkflow.getOrderStatuses().clear();
 
+        getHeldPositions();
+
+    }
+
+    private void getHeldPositions() {
+        if (connectedToTWS) {
+            TradeWorkflow.clearCurrentlyHeldPositions();
+            clientSocket.reqAccountUpdates(true, ACCOUNT_ID);
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            clientSocket.reqAccountUpdates(false, ACCOUNT_ID);
+        }
+        Platform.runLater(this::flushTradingWorkflowQueues);
     }
 
 
@@ -536,10 +505,19 @@ public class MainController implements EWrapper, EnvironmentAware {
             TradeWorkflow.acquireMarketData();
             TradeWorkflow.buyPositions();
             TradeWorkflow.setRunning(false);
-            //log(LogLevel.GUI, "Orders are executing...");
-            //log(LogLevel.FILE, "Orders are executing...");
+
+            flushTradingWorkflowQueues();
+            if(TradeWorkflow.getOrderIdToSmybol().isEmpty()){
+                TradeWorkflow.writeBalanceFile();
+                log(LogLevel.GUI, "No orders need to be filled");
+                log(LogLevel.FILE, "No orders need to be filled");
+                log(LogLevel.GUI,"TradeWorkflow finished");
+                log(LogLevel.FILE,"TradeWorkflow finished");
+                log(LogLevel.GUI,"------------------------------------------------------------------");
+                log(LogLevel.FILE,"------------------------------------------------------------------");
+            }
         }
-        Platform.runLater(this::flushTradingWorkflowQueues);
+
         Platform.runLater(this::updateUI);
     }
 
