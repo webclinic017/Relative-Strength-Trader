@@ -132,6 +132,11 @@ public class TradeWorkflow implements Runnable {
             order.orderType("MOC");
             if(testMode)
                 order.orderType("MKT");
+
+            //DEBUG (normal MKT order didn't work)
+            if(pos.getSymbol().equals("UGA"))
+                order.orderType("IBALGO");
+
             order.totalQuantity(pos.shares);
             order.tif("DAY");
             order.account(pos.accountName);
@@ -265,21 +270,13 @@ public class TradeWorkflow implements Runnable {
             //System.out.println("Buying on: " + contract.exchange());
             contract.symbol(signal);
 
+
+
             int id = checkIfSignalAmbiguous(signal);
             if(id != 0){
                 contract.symbol("");
                 contract.conid(id);
             }
-            //if (signal.equals("MSFT")) {
-            //    contract.symbol("");
-            //    contract.conid(272093);
-            //}
-            //if (signal.equals("GLD")) {
-            //    contract.symbol("");
-            //    contract.conid(51529211);
-            //}
-
-
 
             MainController.clientSocket.placeOrder(++MainController.nextValidOrderID, contract, order);
             orderIdToRemainingToBeFilled.put(MainController.nextValidOrderID, (double) amount);

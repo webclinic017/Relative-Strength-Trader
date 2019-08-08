@@ -65,14 +65,11 @@
             <version>11.0.2</version>
         </dependency>
 
-        <!--<dependency>
-            <groupId>com.ib</groupId>
-            <artifactId>IBAPI</artifactId>
-            <version>1.0</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/lib/TwsApi.jar</systemPath>
+        <dependency>
+            <groupId>javax.mail</groupId>
+            <artifactId>mail</artifactId>
+            <version>1.5.0-b01</version>
         </dependency>
-        -->
 
     </dependencies>
 

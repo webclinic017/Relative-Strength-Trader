@@ -17,6 +17,9 @@ import org.springframework.core.env.Environment;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
 
+import javax.mail.*;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeMessage;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -51,6 +54,10 @@ public class MainController implements EWrapper, EnvironmentAware {
     static String BALANCEFILE_PATH;
     static String AMBIGUOUS_SYMBOLS_FILE_PATH;
     static String DATA_QUERY_LINK;
+    static String MAIL_SENDER_USER;
+    static String MAIL_SENDER_PASSWORD;
+    static String MAIL_RECIPIENT;
+    static String MAIL_SENDER_SMTP_SERVER;
 
 
     // TWS API
@@ -169,6 +176,12 @@ public class MainController implements EWrapper, EnvironmentAware {
         BALANCEFILE_PATH = env.getProperty("path.balancefile");
         AMBIGUOUS_SYMBOLS_FILE_PATH = env.getProperty("path.ambiguoussymbolsfile");
         DATA_QUERY_LINK = env.getProperty("util.dataquerylink");
+        MAIL_SENDER_SMTP_SERVER = env.getProperty("util.mail.sender.smtp");
+        MAIL_SENDER_USER = env.getProperty("util.mail.sender.user");
+        MAIL_SENDER_PASSWORD = env.getProperty("util.mail.sender.password");
+        MAIL_RECIPIENT = env.getProperty("util.mail.recipient");
+
+
 
         TradeWorkflow.setTransmitFlag(Boolean.valueOf(env.getProperty("workflow.transmitflag")));
         TradeWorkflow.setTestMode(Boolean.valueOf(env.getProperty("test.mode")));
@@ -216,6 +229,71 @@ public class MainController implements EWrapper, EnvironmentAware {
         System.out.println("Start workflow button");
         Thread thread = new Thread(new TradeWorkflow());
         thread.run();
+
+
+    }
+
+    static void sendMail(String subject, String content) {
+        // Recipient's email ID needs to be mentioned.
+        String to = MAIL_RECIPIENT;
+
+        // Sender's email ID needs to be mentioned
+        String from = MAIL_SENDER_USER;
+
+        // Assuming you are sending email from localhost
+        String host = MAIL_SENDER_SMTP_SERVER;
+
+        // Get system properties
+        Properties properties = System.getProperties();
+
+        // Setup mail server
+        properties.setProperty("mail.smtp.host", MAIL_SENDER_SMTP_SERVER);
+        properties.setProperty("mail.smtp.user", MAIL_SENDER_USER);
+        properties.setProperty("mail.smtp.password", MAIL_SENDER_PASSWORD);
+        properties.setProperty("mail.smtps.ssl.enable", "true");
+        properties.put("mail.smtp.starttls.enable", "true");
+        properties.put("mail.smtp.auth", "true");
+
+
+        Session session = Session.getInstance(properties, new Authenticator() {
+            @Override
+            protected PasswordAuthentication getPasswordAuthentication() {
+                return new PasswordAuthentication(MAIL_SENDER_USER,
+                        MAIL_SENDER_PASSWORD);
+            }
+        });
+        session.setDebug(true);
+
+        try {
+
+            //Transport transport = session.getTransport("smtp");
+            //transport.connect("mail.gmx.net", "hannes.pfeiffer@gmx.at", "xlt3j.xlt3j.xlt3j");
+
+            // Create a default MimeMessage object.
+            MimeMessage message = new MimeMessage(session);
+
+            // Set From: header field of the header.
+            message.setFrom(new InternetAddress(from));
+
+            // Set To: header field of the header.
+            message.addRecipient(Message.RecipientType.TO, new InternetAddress(to));
+
+            // Set Subject: header field
+            message.setSubject(subject);
+
+            // Now set the actual message
+            DateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
+            Date date = new Date();
+            content = "[" + dateFormat.format(date) + "] " + content;
+            message.setText(content);
+
+            // Send message
+
+            Transport.send(message);
+            System.out.println("Sent message successfully....");
+        } catch (MessagingException mex) {
+            mex.printStackTrace();
+        }
     }
 
     private void connectTWS() {
@@ -707,6 +785,31 @@ public class MainController implements EWrapper, EnvironmentAware {
     public void error(int i, int i1, String s) {
 
         switch (i1) {
+            case 200:
+                log(LogLevel.GUI, "Order couldn't be filled");
+                log(LogLevel.FILE, "Order couldn't be filled");
+
+                log(LogLevel.GUI, "Error " + i1 + "; " + s);
+                log(LogLevel.FILE, "Error " + i1 + "; " + s);
+
+                log(LogLevel.GUI, "Sending mail with error to " + MAIL_RECIPIENT );
+                log(LogLevel.FILE, "Sending mail with error to " + MAIL_RECIPIENT);
+
+                sendMail("RST: error occurred", s + " Trade was not executed.\n" +
+                        "Please find the contract ID for the desired ticker here: \n\n" +
+                        "https://misc.interactivebrokers.com/cstools/contract_info/v3.10/index.php?site=IB&action=Top+Search&symbol=&description= \n\n" +
+                        "and add the following line to the file named \"ambiguous_symbols.txt\": \n\n" +
+                        "[ticker] [contractID] \n\n" + "Then restart RST and run the workflow manually.");
+
+                log(LogLevel.GUI,"TradeWorkflow aborted");
+                log(LogLevel.FILE,"TradeWorkflow aborted");
+                log(LogLevel.GUI,"------------------------------------------------------------------");
+                log(LogLevel.FILE,"------------------------------------------------------------------");
+
+                TradeWorkflow.getOrderStatuses().clear();
+
+                getHeldPositions();
+                break;
             //connection failed
             case 507:
                 log(LogLevel.GUI, "Error " + i1 + "; connection to TWS lost/failed or tried to connect when already connected");
@@ -727,11 +830,17 @@ public class MainController implements EWrapper, EnvironmentAware {
                 //TradeWorkflow.addToGUIQueue(s);
                 // TradeWorkflow.addToFILEQueue(s);
                 break;
+            case 202:
+
             default:
                 //TradeWorkflow.addToGUIQueue(s);
                 //TradeWorkflow.addToFILEQueue(s);
                 log(LogLevel.GUI, "Error " + i1 + "; " + s);
                 log(LogLevel.FILE, "Error " + i1 + "; " + s);
+
+                log(LogLevel.GUI, "Sending mail with error to " + MAIL_RECIPIENT );
+                log(LogLevel.FILE, "Sending mail with error to " + MAIL_RECIPIENT);
+                sendMail("RST: error occurred", s);
                 break;
         }
 
