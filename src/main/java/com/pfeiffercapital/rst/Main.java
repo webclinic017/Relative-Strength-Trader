@@ -39,7 +39,7 @@ public class Main extends Application {
         controller.setMain(this);
         controller.initialize();
 
-        primaryStage.setTitle("RST v0.0.5");
+        primaryStage.setTitle("RST v0.0.6");
         primaryStage.setScene(new Scene(root,700,530));
         primaryStage.show();
     }
