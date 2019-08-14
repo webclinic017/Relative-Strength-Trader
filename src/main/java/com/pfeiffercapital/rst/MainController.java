@@ -46,6 +46,7 @@ public class MainController implements EWrapper, EnvironmentAware {
     static int TWSPORT;
     static int TWSCONNECTIONID;
     static int NUMBER_OF_POSITIONS_TO_HOLD;
+    static double LEVERAGE;
     static String ACCOUNT_ID;
     static String TRADING_CRON_EXPRESSION;
     static String RENAMING_CRON_EXPRESSION;
@@ -168,6 +169,7 @@ public class MainController implements EWrapper, EnvironmentAware {
         TWSCONNECTIONID = Integer.valueOf(env.getProperty("tws.clientid"));
         ACCOUNT_ID = env.getProperty("workflow.accountID");
         NUMBER_OF_POSITIONS_TO_HOLD = Integer.valueOf(env.getProperty("workflow.numberOfPositionsToHold"));
+        LEVERAGE = Double.valueOf(env.getProperty("trading.regT.leverage"));
         TRADING_CRON_EXPRESSION = env.getProperty("workflow.trading.crontrigger");
         RENAMING_CRON_EXPRESSION = env.getProperty("workflow.renaming.crontrigger");
         ALLOW_MANUAL_WORKFLOW_START = Boolean.valueOf((env.getProperty("workflow.trading.allowManualWorkflowStart")));
@@ -390,6 +392,17 @@ public class MainController implements EWrapper, EnvironmentAware {
 
     //-------------------- Utils -----------------------
 
+    public String createTradeWorkFlowSummary(){
+        String summary = "";
+        for (String s : TradeWorkflow.GUILogQueue) {
+            summary += "\n";
+            summary += s;
+        }
+        summary = summary + "\n\nBalance after workflow: " + currentNetLiquidationValue + "\n"
+                + "Percent change from yesterday: [to be implemented]";
+        return summary;
+    }
+
     public TradeWorkflow getTradeWorkflow() {
         if (tradeWorkflow == null) {
             tradeWorkflow = new TradeWorkflow();
@@ -397,8 +410,6 @@ public class MainController implements EWrapper, EnvironmentAware {
         }
         return tradeWorkflow;
     }
-
-
 
     public void flushTradingWorkflowQueues() {
         for (String s : TradeWorkflow.GUILogQueue) {
@@ -443,6 +454,12 @@ public class MainController implements EWrapper, EnvironmentAware {
             e.printStackTrace();
         }
         textAreaLiveLogging.appendText("");
+    }
+
+    public String toDate(){
+        DateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy");
+        Date date = new Date();
+        return dateFormat.format(date);
     }
 
 
@@ -506,6 +523,11 @@ public class MainController implements EWrapper, EnvironmentAware {
         log(LogLevel.GUI, "Orders have successfully been filled");
         log(LogLevel.FILE, "Orders have successfully been filled");
 
+        log(LogLevel.GUI, "Sending summary per email");
+        log(LogLevel.FILE, "Sending summary per email");
+
+        sendMail("RST: Summary " + toDate(), createTradeWorkFlowSummary());
+
         log(LogLevel.GUI,"TradeWorkflow finished");
         log(LogLevel.FILE,"TradeWorkflow finished");
         log(LogLevel.GUI,"------------------------------------------------------------------");
@@ -546,7 +568,7 @@ public class MainController implements EWrapper, EnvironmentAware {
     public void updateAccountValue(String s, String s1, String s2, String s3) {
         //System.out.println("updateAccountValue: " + s + ", value: " + s1 + " " + s2);
 
-        if (s.equals("NetLiquidation")) {
+        if (s.equals("AvailableFunds")) {
             currentNetLiquidationValue = Double.parseDouble(s1);
             TradeWorkflow.setAccountCurrency(s2);
             log(LogLevel.GUI, s + " for " + s3 + " received: " + s1 + " " + s2);
@@ -579,6 +601,30 @@ public class MainController implements EWrapper, EnvironmentAware {
 
         if (TradeWorkflow.getRunning()) {
             TradeWorkflow.readSignalsFromFile();
+            if(TradeWorkflow.signals.size() != MainController.NUMBER_OF_POSITIONS_TO_HOLD) {
+                flushTradingWorkflowQueues();
+                TradeWorkflow.setRunning(false);
+
+
+
+                log(LogLevel.GUI, "Sending mail with error");
+                log(LogLevel.FILE, "Sending mail with error");
+                sendMail("RST: error occurred", "Number of signals [" + TradeWorkflow.signals.size()
+                        +"] does not match with positions to hold [" + MainController.NUMBER_OF_POSITIONS_TO_HOLD +
+                        "] in properties file. Please correct either one, so they match. Then restart the workflow manually.");
+
+                log(LogLevel.GUI, "Sending summary per email");
+                log(LogLevel.FILE, "Sending summary per email");
+
+                sendMail("RST: Summary " + toDate(), createTradeWorkFlowSummary());
+
+                log(LogLevel.GUI, "TradeWorkflow aborted");
+                log(LogLevel.FILE, "TradeWorkflow aborted");
+                log(LogLevel.GUI,"------------------------------------------------------------------");
+                log(LogLevel.FILE,"------------------------------------------------------------------");
+
+                return;
+            }
             TradeWorkflow.sellPositions();
             TradeWorkflow.acquireMarketData();
             TradeWorkflow.buyPositions();
@@ -587,8 +633,15 @@ public class MainController implements EWrapper, EnvironmentAware {
             flushTradingWorkflowQueues();
             if(TradeWorkflow.getOrderIdToSmybol().isEmpty()){
                 TradeWorkflow.writeBalanceFile();
+
                 log(LogLevel.GUI, "No orders need to be filled");
                 log(LogLevel.FILE, "No orders need to be filled");
+
+                log(LogLevel.GUI, "Sending summary per email");
+                log(LogLevel.FILE, "Sending summary per email");
+
+                sendMail("RST: Summary " + toDate(), createTradeWorkFlowSummary());
+
                 log(LogLevel.GUI,"TradeWorkflow finished");
                 log(LogLevel.FILE,"TradeWorkflow finished");
                 log(LogLevel.GUI,"------------------------------------------------------------------");

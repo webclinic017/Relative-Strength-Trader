@@ -27,7 +27,7 @@ public class TradeWorkflow implements Runnable {
     private static boolean transmitFlag = false;
     private static boolean testMode = false;
     private static ArrayList<Position> currentlyHeldPositions = new ArrayList<>();
-    private static ArrayList<String> signals = new ArrayList<>();
+    static ArrayList<String> signals = new ArrayList<>();
     private static ArrayList<String> signalsToBuy = new ArrayList<>();
     private static ArrayList<Position> positionsToSell = new ArrayList<>();
 
@@ -134,8 +134,8 @@ public class TradeWorkflow implements Runnable {
                 order.orderType("MKT");
 
             //DEBUG (normal MKT order didn't work)
-            if(pos.getSymbol().equals("UGA"))
-                order.orderType("IBALGO");
+            //if(pos.getSymbol().equals("UGA"))
+            //    order.orderType("IBALGO");
 
             order.totalQuantity(pos.shares);
             order.tif("DAY");
@@ -360,6 +360,12 @@ public class TradeWorkflow implements Runnable {
         GUILogQueue.add("Read from signal file: " + signals.toString());
         FILELogQueue.add("Read from signal file: " + signals.toString());
 
+        if(signals.size() != MainController.NUMBER_OF_POSITIONS_TO_HOLD) {
+            GUILogQueue.add("Number of signals [" + signals.size() +
+                    "] does not match with positions to hold [" + MainController.NUMBER_OF_POSITIONS_TO_HOLD +
+                    "] in properties file. Please correct either one, so they match.");
+            FILELogQueue.add("Number of signals does not match with properties file. Please correct either one");
+        }
         /*
         MainController.logger.log(LogLevel.GUI,"Signal file read successfully: "+signals.toString());
         MainController.logger.log(LogLevel.FILE,"Signal file read successfully: "+signals.toString());
@@ -405,8 +411,8 @@ public class TradeWorkflow implements Runnable {
 
         String line = String.valueOf(MainController.currentNetLiquidationValue);
         System.out.println("Balance hasn't been written. Needs to be implemented.");
-        GUILogQueue.add("Balance hasn't been written; needs to be implemented");
-        FILELogQueue.add("Balance hasn't been written; needs to be implemented");
+        GUILogQueue.add("Balance hasn't been written [to be implemented]");
+        FILELogQueue.add("Balance hasn't been written [to be implemented]");
     }
 
 

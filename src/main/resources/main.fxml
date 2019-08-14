@@ -11,11 +11,11 @@
 <?import javafx.scene.effect.*?>
 <?import javafx.scene.layout.Pane?>
 
-<TabPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="530.0" prefWidth="700.0" tabClosingPolicy="UNAVAILABLE" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.pfeiffercapital.rst.MainController">
+<TabPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="540.0" prefWidth="700.0" tabClosingPolicy="UNAVAILABLE" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.pfeiffercapital.rst.MainController">
     <tabs>
         <Tab text="Live Trading">
             <content>
-                <Pane prefHeight="530.0" prefWidth="700.0">
+                <Pane prefHeight="515.0" prefWidth="700.0">
                     <children>
                         <Button id="buttonConnectTWS" fx:id="buttonConnectTWS" layoutX="15.0" layoutY="461.0" mnemonicParsing="false" onMouseClicked="#buttonConnectTWSClick" text="Connect to TWS" />
                         <TableView fx:id="tableViewPositions" layoutX="14.0" layoutY="25.0" prefHeight="190.0" prefWidth="673.0">
@@ -55,11 +55,9 @@
                             </effect>
                         </Button>
                         <TextArea fx:id="textAreaLiveLogging" layoutX="13.0" layoutY="233.0" prefHeight="202.0" prefWidth="674.0" />
-                        <Label layoutX="504.0" layoutY="457.0" text="Next Signal(s):" />
-                        <Label fx:id="labelNextSignal" layoutX="594.0" layoutY="457.0" text="0" />
+                        <Label layoutX="505.0" layoutY="465.0" text="Next Signal(s):" />
+                        <Label fx:id="labelNextSignal" layoutX="591.0" layoutY="465.0" text="0" />
                         <Button fx:id="buttonRequestUpdate" layoutX="290.0" layoutY="461.0" mnemonicParsing="false" onAction="#buttonRequestUpdateClick" text="Update" />
-                        <Label layoutX="504.0" layoutY="474.0" text="Current equity:" />
-                        <Label fx:id="labelCurrentEquity" layoutX="594.0" layoutY="474.0" text="0" />
                         <Label layoutX="14.0" layoutY="6.0" text="Currently held positions:" />
                   <Button fx:id="buttonStartWorkflow" layoutX="373.0" layoutY="461.0" mnemonicParsing="false" onAction="#buttonStartWorkflowClick" text="Start Workflow" />
                     </children>
@@ -70,7 +68,7 @@
             <content>
                 <Pane prefHeight="200.0" prefWidth="200.0">
                     <children>
-                        <LineChart layoutX="14.0" layoutY="69.0" prefHeight="307.0" prefWidth="454.0">
+                        <LineChart layoutX="14.0" layoutY="183.0" prefHeight="307.0" prefWidth="454.0">
                             <xAxis>
                                 <CategoryAxis side="BOTTOM" />
                             </xAxis>
@@ -79,8 +77,16 @@
                             </yAxis>
                         </LineChart>
                         <PieChart layoutX="476.0" layoutY="76.0" prefHeight="192.0" prefWidth="160.0" />
-                        <Label layoutX="487.0" layoutY="25.0" text="Positions" />
-                        <Label layoutX="49.0" layoutY="25.0" text="(not sure what could go here, or other tabs)" />
+                  <Label layoutX="30.0" layoutY="68.0" text="Buying power with max. leverage:" />
+                  <Label fx:id="labelCurrentEquity" layoutX="219.0" layoutY="34.0" text="0" />
+                  <Label layoutX="30.0" layoutY="34.0" text="Current equity:" />
+                  <Label layoutX="30.0" layoutY="101.0" text="Max. available leverage:" />
+                  <Label fx:id="labelBuyingPowerWithMaxLeverage" layoutX="219.0" layoutY="68.0" text="0" />
+                  <Label layoutX="30.0" layoutY="51.0" text="Used leverage:" />
+                  <Label fx:id="labelMaxAvailableLeverage" layoutX="219.0" layoutY="101.0" text="0" />
+                  <Label fx:id="labelUsedLeverage" layoutX="219.0" layoutY="51.0" text="0" />
+                  <Label layoutX="30.0" layoutY="85.0" text="Buying power with used leverage:" />
+                  <Label fx:id="labelBuyingPowerWithUsedLeverage1" layoutX="219.0" layoutY="85.0" text="0" />
                     </children>
                 </Pane>
             </content>
