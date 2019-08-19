@@ -1,5 +1,5 @@
 package com.pfeiffercapital.rst;
 
 public enum LogLevel {
-    GUI, FILE
+    GUI, FILE, BOTH
 }

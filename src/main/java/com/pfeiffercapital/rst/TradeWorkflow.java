@@ -18,8 +18,8 @@ public class TradeWorkflow implements Runnable {
     //DEBUG
     static int counter = 0;
 
-    static ArrayList<String> GUILogQueue = new ArrayList<>();
-    static ArrayList<String> FILELogQueue = new ArrayList<>();
+    static ArrayList<String> LogQueue = new ArrayList<>();
+
 
 
     private static boolean active = false;
@@ -50,17 +50,8 @@ public class TradeWorkflow implements Runnable {
         if (active) {
             running = true;
 
-            GUILogQueue.add("------------------------------------------------------------------");
-            FILELogQueue.add("------------------------------------------------------------------");
-            GUILogQueue.add("TradeWorkflow started");
-            FILELogQueue.add("TradeWorkflow started");
-
-            /*
-            MainController.logger.log(LogLevel.GUI,"------------------------------------------------------------------");
-            MainController.logger.log(LogLevel.FILE,"------------------------------------------------------------------");
-            MainController.logger.log(LogLevel.GUI,"TradeWorkflow started");
-            MainController.logger.log(LogLevel.FILE,"TradeWorkflow started");
-            */
+            LogQueue.add("------------------------------------------------------------------");
+            LogQueue.add("TradeWorkflow started");
 
             currentlyHeldPositions.clear();
             signals.clear();
@@ -106,14 +97,14 @@ public class TradeWorkflow implements Runnable {
         }
 
 
-        GUILogQueue.add("Currently holding: " +
+        LogQueue.add("Currently holding: " +
                 currentlyHeldPositions.stream().map(p -> p.getSymbol()).collect(Collectors.toList()));
-        FILELogQueue.add("Currently holding: " +
+        LogQueue.add("Currently holding: " +
                 currentlyHeldPositions.stream().map(p -> p.getSymbol()).collect(Collectors.toList()));
-        GUILogQueue.add("Selling: " + positionsToSell);
-        FILELogQueue.add("Selling: " + positionsToSell);
-        GUILogQueue.add("Buying: " + signalsToBuy);
-        FILELogQueue.add("Selling: " + signalsToBuy);
+        LogQueue.add("Selling: " + positionsToSell);
+        LogQueue.add("Selling: " + positionsToSell);
+        LogQueue.add("Buying: " + signalsToBuy);
+        LogQueue.add("Buying: " + signalsToBuy);
 
         try {
             Thread.sleep(500);
@@ -152,8 +143,8 @@ public class TradeWorkflow implements Runnable {
             orderIdToSmybol.put(MainController.nextValidOrderID, pos.getSymbol());
             System.out.println("OrderID when selling " + pos.getSymbol() + ": " + MainController.nextValidOrderID);
 
-            GUILogQueue.add("Placed order for selling [" + pos + "]");
-            FILELogQueue.add("Placed order for selling [" + pos + "]");
+            LogQueue.add("Placed order for selling [" + pos + "]");
+            LogQueue.add("Placed order for selling [" + pos + "]");
         }
 
     }
@@ -237,8 +228,8 @@ public class TradeWorkflow implements Runnable {
         }
         System.out.println("Retrieved prices from json: " + signalPrices);
 
-        GUILogQueue.add("Received prices from YAHOO finance: " + signalPrices);
-        FILELogQueue.add("Received prices from YAHOO finance: " + signalPrices);
+        LogQueue.add("Received prices from YAHOO finance: " + signalPrices);
+
 
     }
 
@@ -249,8 +240,14 @@ public class TradeWorkflow implements Runnable {
             if (signal.equals("CASH")) {
                 continue;
             }
+
+            LogQueue.add("Calculating shares: (" + MainController.currentNetLiquidationValue +" / " +
+                    signalPrices.get(signal) + ") / " + MainController.NUMBER_OF_POSITIONS_TO_HOLD + ") * " +
+                    MainController.LEVERAGE);
+
+
             int amount = (int) Math.floor((MainController.currentNetLiquidationValue / signalPrices.get(signal)) /
-                    MainController.NUMBER_OF_POSITIONS_TO_HOLD);
+                    MainController.NUMBER_OF_POSITIONS_TO_HOLD * MainController.LEVERAGE);
             shareAmountsToBuy.put(signal, amount);
 
             Order order = new Order();
@@ -267,10 +264,7 @@ public class TradeWorkflow implements Runnable {
             contract.secType("STK");
             contract.currency(accountCurrency);
             contract.exchange("SMART");
-            //System.out.println("Buying on: " + contract.exchange());
             contract.symbol(signal);
-
-
 
             int id = checkIfSignalAmbiguous(signal);
             if(id != 0){
@@ -282,13 +276,9 @@ public class TradeWorkflow implements Runnable {
             orderIdToRemainingToBeFilled.put(MainController.nextValidOrderID, (double) amount);
             orderStatuses.put(MainController.nextValidOrderID, "none");
             orderIdToSmybol.put(MainController.nextValidOrderID, signal);
-            System.out.println("OrderID when buying " + signal + ": " + MainController.nextValidOrderID);
 
-            GUILogQueue.add("Placed order for buying [" + signal + "]");
-            FILELogQueue.add("Placed order for buying [" + signal + "]");
-
-            GUILogQueue.add("Waiting for orders to be filled...");
-            FILELogQueue.add("Waiting for orders to be filled...");
+            LogQueue.add("Placed order for buying [" + signal + "]");
+            LogQueue.add("Waiting for orders to be filled...");
         }
 
         //obsolete, since set to false in central control method (accountDownloadEnd)
@@ -296,8 +286,8 @@ public class TradeWorkflow implements Runnable {
     }
 
     private static int checkIfSignalAmbiguous(String signal) {
-        GUILogQueue.add("Checking if [" + signal + "] is ambiguous");
-        FILELogQueue.add("Checking if [" + signal + "] is ambiguous");
+        LogQueue.add("Checking if [" + signal + "] is ambiguous");
+        LogQueue.add("Checking if [" + signal + "] is ambiguous");
 
         boolean fileExists = true;
         BufferedReader reader = null;
@@ -306,8 +296,8 @@ public class TradeWorkflow implements Runnable {
                     + "ambiguous_symbols.txt"));
         } catch (FileNotFoundException e) {
 
-            GUILogQueue.add("Ambiguous symbol file could not be found");
-            FILELogQueue.add(e.getMessage());
+            LogQueue.add("Ambiguous symbol file could not be found");
+            LogQueue.add(e.getMessage());
             fileExists = false;
         }
         // lines with <6 digits are interpreted as tickers
@@ -331,16 +321,15 @@ public class TradeWorkflow implements Runnable {
         signals.clear();
         signalsToBuy.clear();
 
-        GUILogQueue.add("Reading signal file...");
-        FILELogQueue.add("Reading signal file...");
+        LogQueue.add("Reading signal file...");
 
         boolean fileExists = true;
         BufferedReader reader = null;
         try {
             reader = new BufferedReader(new FileReader(MainController.SIGNALFILE_PATH + "signal.txt"));
         } catch (FileNotFoundException e) {
-            GUILogQueue.add("Signal file could not be found");
-            FILELogQueue.add(e.getMessage());
+            LogQueue.add("Signal file could not be found");
+            LogQueue.add(e.getMessage());
             fileExists = false;
         }
         // lines with <6 digits are interpreted as tickers
@@ -357,25 +346,18 @@ public class TradeWorkflow implements Runnable {
             }
         }
 
-        GUILogQueue.add("Read from signal file: " + signals.toString());
-        FILELogQueue.add("Read from signal file: " + signals.toString());
+        LogQueue.add("Read from signal file: " + signals.toString());
 
         if(signals.size() != MainController.NUMBER_OF_POSITIONS_TO_HOLD) {
-            GUILogQueue.add("Number of signals [" + signals.size() +
+            LogQueue.add("Number of signals [" + signals.size() +
                     "] does not match with positions to hold [" + MainController.NUMBER_OF_POSITIONS_TO_HOLD +
                     "] in properties file. Please correct either one, so they match.");
-            FILELogQueue.add("Number of signals does not match with properties file. Please correct either one");
         }
-        /*
-        MainController.logger.log(LogLevel.GUI,"Signal file read successfully: "+signals.toString());
-        MainController.logger.log(LogLevel.FILE,"Signal file read successfully: "+signals.toString());
-        */
     }
 
 
     public static void writeBalanceFile() {
-        GUILogQueue.add("Updating balance file...");
-        FILELogQueue.add("Updating balance file...");
+        LogQueue.add("Updating balance file...");
 
         boolean fileExists = true;
         BufferedReader reader = null;
@@ -384,8 +366,7 @@ public class TradeWorkflow implements Runnable {
                     MainController.ACCOUNT_ID + ".csv"));
         } catch (FileNotFoundException e) {
 
-            GUILogQueue.add("Balance file not found; creating new one");
-            FILELogQueue.add("Balance file not found; creating new one");
+            LogQueue.add("Balance file not found; creating new one");
 
             File file = new File(MainController.BALANCEFILE_PATH + "balance_" +
                     MainController.ACCOUNT_ID + ".csv");
@@ -410,9 +391,7 @@ public class TradeWorkflow implements Runnable {
         }
 
         String line = String.valueOf(MainController.currentNetLiquidationValue);
-        System.out.println("Balance hasn't been written. Needs to be implemented.");
-        GUILogQueue.add("Balance hasn't been written [to be implemented]");
-        FILELogQueue.add("Balance hasn't been written [to be implemented]");
+        LogQueue.add("Balance hasn't been written [to be implemented]");
     }
 
 
@@ -480,11 +459,11 @@ public class TradeWorkflow implements Runnable {
     }
 
     public static void addToGUIQueue(String s) {
-        GUILogQueue.add(s);
+        LogQueue.add(s);
     }
 
     public static void addToFILEQueue(String s) {
-        FILELogQueue.add(s);
+        LogQueue.add(s);
     }
 
     public static HashMap<Integer, String> getOrderStatuses() {

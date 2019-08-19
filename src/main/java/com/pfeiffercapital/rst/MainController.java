@@ -135,8 +135,7 @@ public class MainController implements EWrapper, EnvironmentAware {
         workflowScheduler.setThreadNamePrefix("SignalFileRenamingWorkflow");
         workflowScheduler.initialize();
         workflowScheduler.schedule(getFileRenamingWorkflow(), new CronTrigger(RENAMING_CRON_EXPRESSION));
-        log(LogLevel.GUI, "Renaming signal file scheduled at: " + RENAMING_CRON_EXPRESSION);
-        log(LogLevel.FILE, "Renaming signal file scheduled at: " + RENAMING_CRON_EXPRESSION);
+        log(LogLevel.BOTH, "Renaming signal file scheduled at: " + RENAMING_CRON_EXPRESSION);
         Platform.runLater(this::updateUI);
     }
 
@@ -183,8 +182,6 @@ public class MainController implements EWrapper, EnvironmentAware {
         MAIL_SENDER_PASSWORD = env.getProperty("util.mail.sender.password");
         MAIL_RECIPIENT = env.getProperty("util.mail.recipient");
 
-
-
         TradeWorkflow.setTransmitFlag(Boolean.valueOf(env.getProperty("workflow.transmitflag")));
         TradeWorkflow.setTestMode(Boolean.valueOf(env.getProperty("test.mode")));
     }
@@ -228,11 +225,8 @@ public class MainController implements EWrapper, EnvironmentAware {
 
     @FXML
     public void buttonStartWorkflowClick() {
-        System.out.println("Start workflow button");
         Thread thread = new Thread(new TradeWorkflow());
         thread.run();
-
-
     }
 
     static void sendMail(String subject, String content) {
@@ -267,9 +261,6 @@ public class MainController implements EWrapper, EnvironmentAware {
         session.setDebug(true);
 
         try {
-
-            //Transport transport = session.getTransport("smtp");
-            //transport.connect("mail.gmx.net", "hannes.pfeiffer@gmx.at", "xlt3j.xlt3j.xlt3j");
 
             // Create a default MimeMessage object.
             MimeMessage message = new MimeMessage(session);
@@ -328,8 +319,7 @@ public class MainController implements EWrapper, EnvironmentAware {
     private void disconnectTWS() {
         clientSocket.eDisconnect();
         connectedToTWS = false;
-        log(LogLevel.GUI, "TWS connection closed");
-        log(LogLevel.FILE, "TWS connection closed");
+        log(LogLevel.BOTH, "TWS connection closed");
         Platform.runLater(this::updateUI);
     }
 
@@ -340,8 +330,7 @@ public class MainController implements EWrapper, EnvironmentAware {
         workflowScheduler.setThreadNamePrefix("ThreadPoolTaskScheduler");
         workflowScheduler.initialize();
         workflowScheduler.schedule(getTradeWorkflow(), new CronTrigger(TRADING_CRON_EXPRESSION));
-        log(LogLevel.GUI, "Live trading started; scheduled at: " + TRADING_CRON_EXPRESSION);
-        log(LogLevel.FILE, "Live trading started; scheduled at: " + TRADING_CRON_EXPRESSION);
+        log(LogLevel.BOTH, "Live trading started; scheduled at: " + TRADING_CRON_EXPRESSION);
         tradingLive = true;
         Platform.runLater(this::updateUI);
     }
@@ -349,8 +338,7 @@ public class MainController implements EWrapper, EnvironmentAware {
     private void stopLiveTrading() {
         tradingLive = false;
         getTradeWorkflow().setActive(false);
-        log(LogLevel.GUI, "Live trading stopped");
-        log(LogLevel.FILE, "Live trading stopped");
+        log(LogLevel.BOTH, "Live trading stopped");
         Platform.runLater(this::updateUI);
     }
 
@@ -376,7 +364,8 @@ public class MainController implements EWrapper, EnvironmentAware {
 
             // To avoid thread exception (not entirely sure why)
             if (Thread.currentThread().getName().equals("JavaFX Application Thread")) {
-                labelCurrentEquity.setText(Double.toString(currentNetLiquidationValue) + " " + TradeWorkflow.getAccountCurrency());
+                labelCurrentEquity.setText(Double.toString(currentNetLiquidationValue) + " " +
+                        TradeWorkflow.getAccountCurrency());
                 labelNextSignal.setText(TradeWorkflow.getSignals().toString());
             }
 
@@ -394,7 +383,7 @@ public class MainController implements EWrapper, EnvironmentAware {
 
     public String createTradeWorkFlowSummary(){
         String summary = "";
-        for (String s : TradeWorkflow.GUILogQueue) {
+        for (String s : TradeWorkflow.LogQueue) {
             summary += "\n";
             summary += s;
         }
@@ -412,19 +401,19 @@ public class MainController implements EWrapper, EnvironmentAware {
     }
 
     public void flushTradingWorkflowQueues() {
-        for (String s : TradeWorkflow.GUILogQueue) {
+        for (String s : TradeWorkflow.LogQueue) {
             log(LogLevel.GUI, s);
         }
-        for (String s : TradeWorkflow.FILELogQueue) {
+        for (String s : TradeWorkflow.LogQueue) {
             log(LogLevel.FILE, s);
         }
-        TradeWorkflow.GUILogQueue.clear();
-        TradeWorkflow.FILELogQueue.clear();
+        TradeWorkflow.LogQueue.clear();
+        TradeWorkflow.LogQueue.clear();
     }
 
     public void log(LogLevel level, String s) {
         try {
-            if (level == LogLevel.GUI && textAreaLiveLogging != null) {
+            if ((level == LogLevel.GUI || level == LogLevel.BOTH) && textAreaLiveLogging != null) {
                 DateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
                 Date date = new Date();
                 logBoxText += "[" + dateFormat.format(date) + "] " + s + "\n";
@@ -432,7 +421,7 @@ public class MainController implements EWrapper, EnvironmentAware {
                 textAreaLiveLogging.setText( text + "[" + dateFormat.format(date) + "] " + s + "\n");
 
             }
-            if (level == LogLevel.FILE) {
+            if (level == LogLevel.FILE || level == LogLevel.BOTH) {
                 try {
                     DateFormat dateFormat = new SimpleDateFormat("dd_MM_yyyy");
                     Date date = new Date();
@@ -457,7 +446,7 @@ public class MainController implements EWrapper, EnvironmentAware {
     }
 
     public String toDate(){
-        DateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy");
+        DateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
         Date date = new Date();
         return dateFormat.format(date);
     }
@@ -520,18 +509,13 @@ public class MainController implements EWrapper, EnvironmentAware {
 
         TradeWorkflow.writeBalanceFile();
 
-        log(LogLevel.GUI, "Orders have successfully been filled");
-        log(LogLevel.FILE, "Orders have successfully been filled");
-
-        log(LogLevel.GUI, "Sending summary per email");
-        log(LogLevel.FILE, "Sending summary per email");
+        log(LogLevel.BOTH, "Orders have successfully been filled");
+        log(LogLevel.BOTH, "Sending summary per email");
 
         sendMail("RST: Summary " + toDate(), createTradeWorkFlowSummary());
 
-        log(LogLevel.GUI,"TradeWorkflow finished");
-        log(LogLevel.FILE,"TradeWorkflow finished");
-        log(LogLevel.GUI,"------------------------------------------------------------------");
-        log(LogLevel.FILE,"------------------------------------------------------------------");
+        log(LogLevel.BOTH,"TradeWorkflow finished");
+        log(LogLevel.BOTH,"------------------------------------------------------------------");
 
         TradeWorkflow.getOrderStatuses().clear();
 
@@ -568,7 +552,7 @@ public class MainController implements EWrapper, EnvironmentAware {
     public void updateAccountValue(String s, String s1, String s2, String s3) {
         //System.out.println("updateAccountValue: " + s + ", value: " + s1 + " " + s2);
 
-        if (s.equals("AvailableFunds")) {
+        if (s.equals("NetLiquidation")) {
             currentNetLiquidationValue = Double.parseDouble(s1);
             TradeWorkflow.setAccountCurrency(s2);
             log(LogLevel.GUI, s + " for " + s3 + " received: " + s1 + " " + s2);
@@ -582,8 +566,7 @@ public class MainController implements EWrapper, EnvironmentAware {
         if (v != 0) {
             TradeWorkflow.getCurrentlyHeldPositions().add(new Position(contract, v, v1, v2, v3, v4, v5, s));
         }
-        log(LogLevel.GUI, "Position in [" + contract.symbol() + "] of [" + (int) v + "] shares of account [" + s + "] received");
-        log(LogLevel.FILE, "Position in [" + contract.symbol() + "] of [" + (int) v + "] shares of account [" + s + "] received");
+        log(LogLevel.BOTH, "Position in [" + contract.symbol() + "] of [" + (int) v + "] shares of account [" + s + "] received");
     }
 
     @Override
@@ -593,7 +576,6 @@ public class MainController implements EWrapper, EnvironmentAware {
 
     @Override
     public void accountDownloadEnd(String s) {
-        System.out.println("In accountDownloadEnd");
         // fill the missing positions with cash
         while (TradeWorkflow.getCurrentlyHeldPositions().size() < NUMBER_OF_POSITIONS_TO_HOLD) {
             TradeWorkflow.getCurrentlyHeldPositions().add(new Position());
@@ -602,26 +584,21 @@ public class MainController implements EWrapper, EnvironmentAware {
         if (TradeWorkflow.getRunning()) {
             TradeWorkflow.readSignalsFromFile();
             if(TradeWorkflow.signals.size() != MainController.NUMBER_OF_POSITIONS_TO_HOLD) {
-                flushTradingWorkflowQueues();
+
                 TradeWorkflow.setRunning(false);
 
-
-
-                log(LogLevel.GUI, "Sending mail with error");
-                log(LogLevel.FILE, "Sending mail with error");
+                log(LogLevel.BOTH, "Sending mail with error");
                 sendMail("RST: error occurred", "Number of signals [" + TradeWorkflow.signals.size()
                         +"] does not match with positions to hold [" + MainController.NUMBER_OF_POSITIONS_TO_HOLD +
                         "] in properties file. Please correct either one, so they match. Then restart the workflow manually.");
 
-                log(LogLevel.GUI, "Sending summary per email");
-                log(LogLevel.FILE, "Sending summary per email");
+                log(LogLevel.BOTH, "Sending summary per email");
 
                 sendMail("RST: Summary " + toDate(), createTradeWorkFlowSummary());
 
-                log(LogLevel.GUI, "TradeWorkflow aborted");
-                log(LogLevel.FILE, "TradeWorkflow aborted");
-                log(LogLevel.GUI,"------------------------------------------------------------------");
-                log(LogLevel.FILE,"------------------------------------------------------------------");
+                flushTradingWorkflowQueues();
+                log(LogLevel.BOTH, "TradeWorkflow aborted");
+                log(LogLevel.BOTH,"------------------------------------------------------------------");
 
                 return;
             }
@@ -630,23 +607,18 @@ public class MainController implements EWrapper, EnvironmentAware {
             TradeWorkflow.buyPositions();
             TradeWorkflow.setRunning(false);
 
-            flushTradingWorkflowQueues();
+
             if(TradeWorkflow.getOrderIdToSmybol().isEmpty()){
                 TradeWorkflow.writeBalanceFile();
-
-                log(LogLevel.GUI, "No orders need to be filled");
-                log(LogLevel.FILE, "No orders need to be filled");
-
-                log(LogLevel.GUI, "Sending summary per email");
-                log(LogLevel.FILE, "Sending summary per email");
-
+                log(LogLevel.BOTH, "No orders need to be filled");
+                log(LogLevel.BOTH, "Sending summary per email");
                 sendMail("RST: Summary " + toDate(), createTradeWorkFlowSummary());
-
-                log(LogLevel.GUI,"TradeWorkflow finished");
-                log(LogLevel.FILE,"TradeWorkflow finished");
-                log(LogLevel.GUI,"------------------------------------------------------------------");
-                log(LogLevel.FILE,"------------------------------------------------------------------");
+                log(LogLevel.BOTH,"TradeWorkflow finished");
+                log(LogLevel.BOTH,"------------------------------------------------------------------");
             }
+
+            sendMail("RST: Summary " + toDate(), createTradeWorkFlowSummary());
+            flushTradingWorkflowQueues();
         }
 
         Platform.runLater(this::updateUI);

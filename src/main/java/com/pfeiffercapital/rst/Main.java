@@ -41,6 +41,7 @@ public class Main extends Application {
 
         primaryStage.setTitle("RST v0.0.6");
         primaryStage.setScene(new Scene(root,700,530));
+        primaryStage.setResizable(false);
         primaryStage.show();
     }
 
