@@ -15,13 +15,21 @@ import java.util.stream.Collectors;
 
 public class TradeWorkflow implements Runnable {
 
-    //DEBUG
-    static int counter = 0;
+    /**
+     * active ... whether the workflow is activated (if not, won't execute when triggered)
+     * running ... if workflow is currently running
+     * transmitFlag ... whether to directly transmit orders
+     * MKTorders ... whether to use MKT orders (<D1 timeframe). else use MOC orders
+     * currentlyHeldPositions ... positions that are currently held
+     * signals ... signals from file
+     * signalsToBuy ... remaining signals after removing currently held tickers
+     * positionsToSell ... positions that will be sold
+     * orderIdToRemainingToBeFilled ... orderID of orders with outstanding shares to be filled
+     * orderStatuses ... orderID of orders with status https://interactivebrokers.github.io/tws-api/interfaceIBApi_1_1EWrapper.html#a17f2a02d6449710b6394d0266a353313
+     * TODO: finish list
+     */
 
     static ArrayList<String> LogQueue = new ArrayList<>();
-
-
-
     private static boolean active = false;
     private static boolean running = false;
     private static boolean transmitFlag = false;
@@ -31,9 +39,13 @@ public class TradeWorkflow implements Runnable {
     private static ArrayList<String> signalsToBuy = new ArrayList<>();
     private static ArrayList<Position> positionsToSell = new ArrayList<>();
 
-    private static HashMap<Integer,Double> orderIdToRemainingToBeFilled = new HashMap<>();
+    private static HashMap<Integer,Double> orderIdToRemainingToBeFilled = new HashMap<>(); //
     private static HashMap<Integer,String> orderStatuses = new HashMap<>();
+    private static HashMap<Integer,String> sellOrderStatuses = new HashMap<>();
     private static HashMap<Integer,String> orderIdToSmybol = new HashMap<>();
+    private static HashMap<Integer,String> orderIdToSellingSymbols = new HashMap<>();
+    //private static HashMap<Integer,String> orderIdToBuyingSymbols = new HashMap<>();
+    private static HashMap<String,Integer> symbolToReqMktDataID = new HashMap<>();
     private static Map<String, Double> signalPrices = new HashMap<>();
     private static Map<String, Integer> shareAmountsToBuy = new HashMap<>();
     private static Map<String, Integer> symbolToContractId = new HashMap<>();
@@ -61,59 +73,17 @@ public class TradeWorkflow implements Runnable {
             orderStatuses.clear();
             orderIdToSmybol.clear();
 
-            MainController.clientSocket.reqAccountUpdates(true, MainController.env.getProperty("workflow.accountID"));
+            MainController.clientSocket.reqAccountUpdates(true, MainController.ACCOUNT_ID);
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            MainController.clientSocket.reqAccountUpdates(false, MainController.env.getProperty("workflow.accountID"));
+            MainController.clientSocket.reqAccountUpdates(false, MainController.ACCOUNT_ID);
         }
-
     }
 
     public static void sellPositions() {
-        System.out.println("Selling positions");
-
-
-        // determining which tickers to sell and buy
-        for (String signal : signals) {
-            List<Position> list = currentlyHeldPositions.stream().filter(p -> p.getSymbol().equals(signal))
-                    .collect(Collectors.toList());
-            if (list.size() == 0) {
-                signalsToBuy.add(signal);
-            }
-        }
-        for (Position pos : currentlyHeldPositions) {
-            if (!signals.contains(pos.getSymbol())) {
-                positionsToSell.add(pos);
-            }
-        }
-
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-
-        LogQueue.add("Currently holding: " +
-                currentlyHeldPositions.stream().map(p -> p.getSymbol()).collect(Collectors.toList()));
-        LogQueue.add("Currently holding: " +
-                currentlyHeldPositions.stream().map(p -> p.getSymbol()).collect(Collectors.toList()));
-        LogQueue.add("Selling: " + positionsToSell);
-        LogQueue.add("Selling: " + positionsToSell);
-        LogQueue.add("Buying: " + signalsToBuy);
-        LogQueue.add("Buying: " + signalsToBuy);
-
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-
-        // selling
         for (Position pos : positionsToSell) {
             if (pos.getSymbol().equals("CASH")) {
                 continue;
@@ -140,13 +110,91 @@ public class TradeWorkflow implements Runnable {
             MainController.clientSocket.placeOrder(++MainController.nextValidOrderID, pos.getContract(), order);
             orderIdToRemainingToBeFilled.put(MainController.nextValidOrderID, pos.shares);
             orderStatuses.put(MainController.nextValidOrderID, "none");
+            sellOrderStatuses.put(MainController.nextValidOrderID, "none");
             orderIdToSmybol.put(MainController.nextValidOrderID, pos.getSymbol());
+            orderIdToSellingSymbols.put(MainController.nextValidOrderID, pos.getSymbol());
             System.out.println("OrderID when selling " + pos.getSymbol() + ": " + MainController.nextValidOrderID);
 
             LogQueue.add("Placed order for selling [" + pos + "]");
-            LogQueue.add("Placed order for selling [" + pos + "]");
         }
+    }
 
+    public static void determineBuysAndSells() {
+        for (String signal : signals) {
+            List<Position> list = currentlyHeldPositions.stream().filter(p -> p.getSymbol().equals(signal))
+                    .collect(Collectors.toList());
+            if (list.size() == 0) {
+                signalsToBuy.add(signal);
+            }
+        }
+        for (Position pos : currentlyHeldPositions) {
+            if (!signals.contains(pos.getSymbol())) {
+                positionsToSell.add(pos);
+            }
+        }
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        LogQueue.add("Currently holding: " +
+                currentlyHeldPositions.stream().map(p -> p.getSymbol()).collect(Collectors.toList()));
+        LogQueue.add("Selling: " + positionsToSell);
+        LogQueue.add("Buying: " + signalsToBuy);
+
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void requestMarketDataForUsedSymbols() {
+        for(Position pos : positionsToSell){
+            if(!pos.getSymbol().equals("CASH")) {
+                switch (pos.getSymbol()){
+                    case "SCO":
+                        pos.getContract().exchange("ARCA");
+                        break;
+                    default:
+                        pos.getContract().exchange("SMART");
+                        break;
+                }
+                int id = checkIfSignalAmbiguous(pos.getSymbol());
+                if(id != 0){
+                    pos.getContract().conid(id);
+                }
+                // pos.getContract().secType(Types.SecType.STK);
+                MainController.clientSocket.reqMktData(++MainController.nextValidOrderID, pos.getContract(), "", false, false, null);
+                System.out.println("Contract exchange for "+pos.getSymbol()+" is " + pos.getContract().exchange());
+                System.out.println("Requested market data for " + pos.getSymbol() + " with ID " + MainController.nextValidOrderID);
+                symbolToReqMktDataID.put(pos.getSymbol(), MainController.nextValidOrderID);
+            }
+        }
+        for(String signal : signalsToBuy){
+            Contract con = new Contract();
+            con.symbol(signal);
+            int id = checkIfSignalAmbiguous(signal);
+            if(id != 0){
+                con.conid(id);
+            }
+            switch (signal){
+                case "SCO":
+                    con.exchange("ARCA");
+                    break;
+                //case "MSFT":
+                //    con.exchange("NASDAQ");
+                //    break;
+                default:
+                    con.exchange("NASDAQ");
+                    break;
+            }
+            //con.secType(Types.SecType.STK);
+            MainController.clientSocket.reqMktData(++MainController.nextValidOrderID, con, "", false, false, null);
+            System.out.println("Requested market data for " + signal + " with ID " + MainController.nextValidOrderID);
+            symbolToReqMktDataID.put(signal, MainController.nextValidOrderID);
+        }
+        System.out.println("List of symbols with reqIDs: \n " + symbolToReqMktDataID);
     }
 
     // uses yahoo finance. needs to be adjusted if new data source is used
@@ -226,11 +274,7 @@ public class TradeWorkflow implements Runnable {
                 }
             }
         }
-        System.out.println("Retrieved prices from json: " + signalPrices);
-
         LogQueue.add("Received prices from YAHOO finance: " + signalPrices);
-
-
     }
 
     public static void buyPositions() {
@@ -241,14 +285,13 @@ public class TradeWorkflow implements Runnable {
                 continue;
             }
 
-            LogQueue.add("Calculating shares: (" + MainController.currentNetLiquidationValue +" / " +
-                    signalPrices.get(signal) + ") / " + MainController.NUMBER_OF_POSITIONS_TO_HOLD + ") * " +
-                    MainController.LEVERAGE);
-
-
             int amount = (int) Math.floor((MainController.currentNetLiquidationValue / signalPrices.get(signal)) /
                     MainController.NUMBER_OF_POSITIONS_TO_HOLD * MainController.LEVERAGE);
             shareAmountsToBuy.put(signal, amount);
+
+            LogQueue.add("Calculating shares: (" + MainController.currentNetLiquidationValue +" / " +
+                    signalPrices.get(signal) + ") / " + MainController.NUMBER_OF_POSITIONS_TO_HOLD + ") * " +
+                    MainController.LEVERAGE + " = " + amount);
 
             Order order = new Order();
             order.action("BUY");
@@ -278,7 +321,7 @@ public class TradeWorkflow implements Runnable {
             orderIdToSmybol.put(MainController.nextValidOrderID, signal);
 
             LogQueue.add("Placed order for buying [" + signal + "]");
-            LogQueue.add("Waiting for orders to be filled...");
+            LogQueue.add("Waiting for order to be filled...");
         }
 
         //obsolete, since set to false in central control method (accountDownloadEnd)
@@ -286,7 +329,6 @@ public class TradeWorkflow implements Runnable {
     }
 
     private static int checkIfSignalAmbiguous(String signal) {
-        LogQueue.add("Checking if [" + signal + "] is ambiguous");
         LogQueue.add("Checking if [" + signal + "] is ambiguous");
 
         boolean fileExists = true;
@@ -478,4 +520,7 @@ public class TradeWorkflow implements Runnable {
         TradeWorkflow.MKTorders = MKTorders;
     }
 
+    public static HashMap<Integer, String> getSellOrderStatuses() {
+        return sellOrderStatuses;
+    }
 }
