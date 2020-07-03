@@ -33,7 +33,7 @@ public class TradeWorkflow implements Runnable {
     private static boolean active = false;
     private static boolean running = false;
     private static boolean transmitFlag = false;
-    private static boolean testMode = false;
+    private static boolean MKTorders = false;
     private static ArrayList<Position> currentlyHeldPositions = new ArrayList<>();
     static ArrayList<String> signals = new ArrayList<>();
     private static ArrayList<String> signalsToBuy = new ArrayList<>();
@@ -50,11 +50,6 @@ public class TradeWorkflow implements Runnable {
     private static Map<String, Integer> shareAmountsToBuy = new HashMap<>();
     private static Map<String, Integer> symbolToContractId = new HashMap<>();
     private static String accountCurrency = "USD";
-
-    public static void setTestMode(boolean testMode) {
-        TradeWorkflow.testMode = testMode;
-    }
-
 
     @Override
     public void run() {
@@ -91,7 +86,7 @@ public class TradeWorkflow implements Runnable {
             Order order = new Order();
             order.action("SELL");
             order.orderType("MOC");
-            if(testMode)
+            if(MKTorders)
                 order.orderType("MKT");
 
             //DEBUG (normal MKT order didn't work)
@@ -102,7 +97,7 @@ public class TradeWorkflow implements Runnable {
             order.tif("DAY");
             order.account(pos.accountName);
             order.orderRef("MOC sell order for " + pos);
-            if(testMode)
+            if(MKTorders)
                 order.orderRef("MKT sell order for " + pos);
             order.transmit(transmitFlag);
             pos.getContract().exchange("SMART");
@@ -296,13 +291,14 @@ public class TradeWorkflow implements Runnable {
             Order order = new Order();
             order.action("BUY");
             order.orderType("MOC");
-            if(testMode)
+            if(MKTorders)
                 order.orderType("MKT");
             order.totalQuantity(amount);
             order.transmit(transmitFlag);
             order.account(MainController.ACCOUNT_ID);
-            order.orderRef("test order");
-
+            order.orderRef("MOC buy order for " + signal);
+            if(MKTorders)
+                order.orderRef("MKT buy order for " + signal);
             Contract contract = new Contract();
             contract.secType("STK");
             contract.currency(accountCurrency);

@@ -43,6 +43,9 @@ public class MainController implements EWrapper, EnvironmentAware {
     static String TWSIP;
     static int TWSPORT;
     static int TWSCONNECTIONID;
+    static boolean TRADE_LIVE_ON_APP_START;
+    static boolean CONNECT_ON_APP_START;
+    static boolean ALLOW_MANUAL_WORKFLOW_START;
     static int NUMBER_OF_POSITIONS_TO_HOLD;
     static double LEVERAGE;
     static String ACCOUNT_ID;
@@ -125,6 +128,7 @@ public class MainController implements EWrapper, EnvironmentAware {
         initializeUI();
         initializeSignalFileRenamingWorkflow();
         Platform.runLater(this::updateUI);
+
     }
 
     private void initializeSignalFileRenamingWorkflow() {
@@ -151,9 +155,7 @@ public class MainController implements EWrapper, EnvironmentAware {
         columnMarketPrice.setCellValueFactory(new PropertyValueFactory<>("marketPrice"));
         columnPositionValue.setCellValueFactory(new PropertyValueFactory<>("marketValue"));
         columnAbsoluteProfit.setCellValueFactory(new PropertyValueFactory<>("unrealizedPNL"));
-
-        // TODO: implement columnProfitPercent
-
+        columnProfitPercent.setCellValueFactory(new PropertyValueFactory<>("PNLinPercent"));
         UIPositionList = FXCollections.observableArrayList(TradeWorkflow.getCurrentlyHeldPositions());
         tableViewPositions.setItems(UIPositionList);
         buttonStartWorkflow.setDisable(!ALLOW_MANUAL_WORKFLOW_START);
@@ -164,6 +166,8 @@ public class MainController implements EWrapper, EnvironmentAware {
         TWSIP = env.getProperty("tws.ip");
         TWSPORT = Integer.valueOf(env.getProperty("tws.port"));
         TWSCONNECTIONID = Integer.valueOf(env.getProperty("tws.clientid"));
+        TRADE_LIVE_ON_APP_START = Boolean.valueOf((env.getProperty("workflow.tradeLiveOnStart")));
+        CONNECT_ON_APP_START = Boolean.valueOf(((env.getProperty(("workflow.connectOnStart")))));
         ACCOUNT_ID = env.getProperty("workflow.accountID");
         NUMBER_OF_POSITIONS_TO_HOLD = Integer.valueOf(env.getProperty("workflow.numberOfPositionsToHold"));
         LEVERAGE = Double.valueOf(env.getProperty("trading.regT.leverage"));
@@ -181,7 +185,7 @@ public class MainController implements EWrapper, EnvironmentAware {
         MAIL_RECIPIENT = env.getProperty("util.mail.recipient");
 
         TradeWorkflow.setTransmitFlag(Boolean.valueOf(env.getProperty("workflow.transmitflag")));
-        TradeWorkflow.setTestMode(Boolean.valueOf(env.getProperty("test.mode")));
+        TradeWorkflow.setMKTorders(Boolean.valueOf(env.getProperty("workflow.useMarketOrders")));
     }
 
     @Override
