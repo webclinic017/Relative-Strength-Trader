@@ -31,89 +31,92 @@ public class MainController implements EWrapper, EnvironmentAware {
 
     // DEBUG
     static int messagesReceived = 0;
-    static String logBoxText = "";
+    private static String logBoxText = "";
+    static int counter = 0;
 
     @Autowired
     static Environment env;
-    static public Main main;
-    //static Logger logger;
+    private static Main main;
+    private static MainController mainController;
 
-
-    // Values come from properties file
-    static String TWSIP;
-    static int TWSPORT;
-    static int TWSCONNECTIONID;
+    // Values come from the .properties file
+    private static String TWSIP;
+    private static int TWSPORT;
+    private static int TWSCONNECTIONID;
     static boolean TRADE_LIVE_ON_APP_START;
-    static boolean CONNECT_ON_APP_START;
-    static boolean ALLOW_MANUAL_WORKFLOW_START;
+    private static boolean ALLOW_MANUAL_WORKFLOW_START;
     static int NUMBER_OF_POSITIONS_TO_HOLD;
     static double LEVERAGE;
     static String ACCOUNT_ID;
-    static String TRADING_CRON_EXPRESSION;
-    static String RENAMING_CRON_EXPRESSION;
-    static String LOGFILE_PATH;
+    private static String TRADING_CRON_EXPRESSION;
+    private static String RENAMING_CRON_EXPRESSION;
+    private static String LOGFILE_PATH;
     static String SIGNALFILE_PATH;
     static String BALANCEFILE_PATH;
     static String AMBIGUOUS_SYMBOLS_FILE_PATH;
     static String DATA_QUERY_LINK;
-    static String MAIL_SENDER_USER;
-    static String MAIL_SENDER_PASSWORD;
-    static String MAIL_RECIPIENT;
-    static String MAIL_SENDER_SMTP_SERVER;
+    private static String MAIL_SENDER_USER;
+    private static String MAIL_SENDER_PASSWORD;
+    private static String MAIL_RECIPIENT;
+    private static String MAIL_SENDER_SMTP_SERVER;
 
 
     // TWS API
-    static com.ib.client.EReaderSignal readerSignal;
-    static com.ib.client.EClientSocket clientSocket;
-    static com.ib.client.EReader reader;
-    static int nextValidOrderID = -1;
+    private static EReaderSignal readerSignal;
+    static EClientSocket clientSocket;
+    private static EReader reader;
+    static int nextValidOrderID;
+
+    static {
+        nextValidOrderID = -1;
+    }
 
     // Workflows
-    static TradeWorkflow tradeWorkflow = null;
-    static SignalFileRenamingWorkflow renamingWorkflow = null;
+    private static TradeWorkflow tradeWorkflow = null;
+    private static SignalFileRenamingWorkflow renamingWorkflow = null;
 
     // Application status
-    static boolean connectedToTWS = false;
-    static boolean tradingLive = false;
+    private static boolean connectedToTWS = false;
+    private static boolean tradingLive = false;
     static double currentNetLiquidationValue = 0;
 
-    static ObservableList<Position> UIPositionList;
+    private static ObservableList<Position> UIPositionList;
 
     //GUI
     @FXML
-    private Button buttonConnectTWS;
+    private  Button buttonConnectTWS;
     @FXML
-    private Button buttonTradeLive;
+    private  Button buttonTradeLive;
     @FXML
-    private Button buttonTradeLiveColor;
+    private  Button buttonTradeLiveColor;
     @FXML
-    private Button buttonRequestUpdate;
+    private  Button buttonRequestUpdate;
     @FXML
-    private Button buttonConnectTWSColor;
+    private  Button buttonConnectTWSColor;
     @FXML
-    private Button buttonStartWorkflow;
+    private  Button buttonStartWorkflow;
     @FXML
-    private TextArea textAreaLiveLogging;
+    private  TextArea textAreaLiveLogging;
     @FXML
-    private Label labelCurrentEquity;
+    private  Label labelCurrentEquity;
     @FXML
-    private Label labelNextSignal;
+    private  Label labelNextSignal;
     @FXML
-    private TableView<Position> tableViewPositions;
+    private  TableView<Position> tableViewPositions;
     @FXML
     private TableColumn<Position, String> columnTicker;
     @FXML
-    private TableColumn<Position, Double> columnShares;
+    private  TableColumn<Position, Double> columnShares;
     @FXML
-    private TableColumn<Position, Double> columnSharePrice;
+    private  TableColumn<Position, Double> columnSharePrice;
     @FXML
-    private TableColumn<Position, Double> columnMarketPrice;
+    private  TableColumn<Position, Double> columnMarketPrice;
     @FXML
-    private TableColumn<Position, Double> columnPositionValue;
+    private  TableColumn<Position, Double> columnPositionValue;
     @FXML
-    private TableColumn<Position, Double> columnProfitPercent;
+    private  TableColumn<Position, Double> columnProfitPercent;
     @FXML
-    private TableColumn<Position, Double> columnAbsoluteProfit;
+    private  TableColumn<Position, Double> columnAbsoluteProfit;
 
 
     //----------------- Initializing -------------------
@@ -127,7 +130,7 @@ public class MainController implements EWrapper, EnvironmentAware {
         initializeFromPropertiesFile();
         initializeUI();
         initializeSignalFileRenamingWorkflow();
-        Platform.runLater(this::updateUI);
+        updateUI();
 
     }
 
@@ -138,7 +141,7 @@ public class MainController implements EWrapper, EnvironmentAware {
         workflowScheduler.initialize();
         workflowScheduler.schedule(getFileRenamingWorkflow(), new CronTrigger(RENAMING_CRON_EXPRESSION));
         log(LogLevel.BOTH, "Renaming signal file scheduled at: " + RENAMING_CRON_EXPRESSION);
-        Platform.runLater(this::updateUI);
+        updateUI();
     }
 
     private Runnable getFileRenamingWorkflow() {
@@ -159,6 +162,7 @@ public class MainController implements EWrapper, EnvironmentAware {
         UIPositionList = FXCollections.observableArrayList(TradeWorkflow.getCurrentlyHeldPositions());
         tableViewPositions.setItems(UIPositionList);
         buttonStartWorkflow.setDisable(!ALLOW_MANUAL_WORKFLOW_START);
+        textAreaLiveLogging.appendText("[for logs, see log files in 'log_files' folder]");
 
     }
 
@@ -167,7 +171,7 @@ public class MainController implements EWrapper, EnvironmentAware {
         TWSPORT = Integer.valueOf(env.getProperty("tws.port"));
         TWSCONNECTIONID = Integer.valueOf(env.getProperty("tws.clientid"));
         TRADE_LIVE_ON_APP_START = Boolean.valueOf((env.getProperty("workflow.tradeLiveOnStart")));
-        CONNECT_ON_APP_START = Boolean.valueOf(((env.getProperty(("workflow.connectOnStart")))));
+        boolean CONNECT_ON_APP_START = Boolean.valueOf(((env.getProperty(("workflow.connectOnStart")))));
         ACCOUNT_ID = env.getProperty("workflow.accountID");
         NUMBER_OF_POSITIONS_TO_HOLD = Integer.valueOf(env.getProperty("workflow.numberOfPositionsToHold"));
         LEVERAGE = Double.valueOf(env.getProperty("trading.regT.leverage"));
@@ -186,6 +190,7 @@ public class MainController implements EWrapper, EnvironmentAware {
 
         TradeWorkflow.setTransmitFlag(Boolean.valueOf(env.getProperty("workflow.transmitflag")));
         TradeWorkflow.setMKTorders(Boolean.valueOf(env.getProperty("workflow.useMarketOrders")));
+        TradeWorkflow.setMainController(this);
     }
 
     @Override
@@ -223,6 +228,7 @@ public class MainController implements EWrapper, EnvironmentAware {
     public void buttonRequestUpdateClick() {
         TradeWorkflow.readSignalsFromFile();
         getHeldPositions();
+        updateUI();
     }
 
     @FXML
@@ -307,7 +313,7 @@ public class MainController implements EWrapper, EnvironmentAware {
                 try {
                     reader.processMsgs();
                 } catch (Exception e) {
-                    System.out.println("Exception: " + e.getMessage());
+                    System.out.println("Exception JO: " + e.getMessage());
                 }
             }
         }).start();
@@ -326,10 +332,10 @@ public class MainController implements EWrapper, EnvironmentAware {
         clientSocket.eDisconnect();
         connectedToTWS = false;
         log(LogLevel.BOTH, "TWS connection closed");
-        Platform.runLater(this::updateUI);
+        updateUI();
     }
 
-    private void startLiveTrading() {
+    private static void startLiveTrading() {
         getTradeWorkflow().setActive(true);
         ThreadPoolTaskScheduler workflowScheduler = new ThreadPoolTaskScheduler();
         workflowScheduler.setPoolSize(5);
@@ -338,14 +344,14 @@ public class MainController implements EWrapper, EnvironmentAware {
         workflowScheduler.schedule(getTradeWorkflow(), new CronTrigger(TRADING_CRON_EXPRESSION));
         log(LogLevel.BOTH, "Live trading started; scheduled at: " + TRADING_CRON_EXPRESSION);
         tradingLive = true;
-        Platform.runLater(this::updateUI);
+        mainController.updateUI();
     }
 
-    private void stopLiveTrading() {
+    private static void stopLiveTrading() {
         tradingLive = false;
         getTradeWorkflow().setActive(false);
         log(LogLevel.BOTH, "Live trading stopped");
-        Platform.runLater(this::updateUI);
+        mainController.updateUI();
     }
 
 
@@ -381,14 +387,14 @@ public class MainController implements EWrapper, EnvironmentAware {
             UIPositionList.sort(Comparator.comparing(Position::getMarketValue).reversed());
         } catch (Exception e) {
             //e.printStackTrace();
-            System.out.println("Fuck you, exception");
+            System.out.println(e.getMessage());
         }
     }
 
 
     //-------------------- Utils -----------------------
 
-    public String createTradeWorkflowSummary(){
+    public static String createTradeWorkflowSummary(){
         String summary = "";
         for (String s : TradeWorkflow.LogQueue) {
             summary += "\n";
@@ -399,7 +405,7 @@ public class MainController implements EWrapper, EnvironmentAware {
         return summary;
     }
 
-    public TradeWorkflow getTradeWorkflow() {
+    public static TradeWorkflow getTradeWorkflow() {
         if (tradeWorkflow == null) {
             tradeWorkflow = new TradeWorkflow();
 
@@ -407,19 +413,23 @@ public class MainController implements EWrapper, EnvironmentAware {
         return tradeWorkflow;
     }
 
-    public void flushTradingWorkflowQueues() {
-        for (String s : TradeWorkflow.LogQueue) {
-            log(LogLevel.GUI, s);
+    public static void flushTradingWorkflowQueues() {
+        try {
+            //for (String s : TradeWorkflow.LogQueue) {
+            //    log(LogLevel.GUI, s);
+            //}
+            for (String s : TradeWorkflow.LogQueue) {
+                log(LogLevel.FILE, s);
+            }
+            TradeWorkflow.LogQueue.clear();
         }
-        for (String s : TradeWorkflow.LogQueue) {
-            log(LogLevel.FILE, s);
+        catch (Exception e) {
+            System.out.println(e.getMessage());
         }
-        TradeWorkflow.LogQueue.clear();
-        TradeWorkflow.LogQueue.clear();
     }
 
-    public void log(LogLevel level, String s) {
-        try {
+    public static void log(LogLevel level, String s) {
+        /*try {
             if ((level == LogLevel.GUI || level == LogLevel.BOTH) && textAreaLiveLogging != null) {
                 DateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
                 Date date = new Date();
@@ -450,18 +460,37 @@ public class MainController implements EWrapper, EnvironmentAware {
             e.printStackTrace();
         }
         textAreaLiveLogging.appendText("");
+
+        */
+        try {
+            DateFormat dateFormat = new SimpleDateFormat("dd_MM_yyyy");
+            Date date = new Date();
+            BufferedWriter writer = null;
+            writer = new BufferedWriter(new FileWriter(LOGFILE_PATH + dateFormat.format(date)
+                    + "_log.txt", true));
+            dateFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
+            writer.append("[" + dateFormat.format(date) + "] " + s);
+            writer.append('\n');
+            writer.close();
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+
     }
 
-    public String toDate(){
+    public static String toDate(){
         DateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
         Date date = new Date();
         return dateFormat.format(date);
     }
 
-    public void endTradingWorkflow(boolean finish){
+    public void cancelAllOrders() {
+        for (Integer orderId : TradeWorkflow.getSellOrderStatuses().keySet()) {
+            clientSocket.cancelOrder(orderId);
+        }
+        log(LogLevel.BOTH, "All remaining open orders have been cancelled");
 
     }
-
 
     //------------------- API callbacks --------------------
 
@@ -498,69 +527,88 @@ public class MainController implements EWrapper, EnvironmentAware {
 
     @Override
     public void orderStatus(int i, String s, double v, double v1, double v2, int i1, int i2, double v3, int i3, String s1, double v4) {
-        //DEBUG
-        //System.out.print("\n__________________________________\n");
-        //System.out.print(i + "\n" + s +"\n" + v + "\n" + v1 );
-
+        counter++;
         if(TradeWorkflow.getOrderStatuses().isEmpty())
             return;
 
         //not used yet
         TradeWorkflow.getOrderIdToRemainingToBeFilled().put(i, v1);
-
         if(!TradeWorkflow.getOrderStatuses().get(i).equals("Filled") &&
             s.equals("Filled")){
             log(LogLevel.BOTH, "Successfully executed [" + TradeWorkflow.getOrderIdToSmybol().get(i) +  "] order");
         }
         TradeWorkflow.getOrderStatuses().put(i, s);
-
         if(TradeWorkflow.getSellOrderStatuses().keySet().contains(i)){
-            // TODO: check, if this is triggered correctly
-            System.out.println("Orderstatus for sell-order received: " + i + " " + s);
+            System.out.println("Orderstatus for sell-order received: "+ i + " " + s +" "+ v + " " + v1);
             TradeWorkflow.getSellOrderStatuses().put(i,s);
         }
+        if(TradeWorkflow.getBuyOrderStatuses().keySet().contains(i)){
+            System.out.println("Orderstatus for buy-order received: " + i + " " + s +" "+ v + " " + v1);
+            TradeWorkflow.getBuyOrderStatuses().put(i,s);
+        }
+        for(Integer orderId : TradeWorkflow.getSellOrderStatuses().keySet()){
+            if(!TradeWorkflow.getSellOrderStatuses().get(orderId).equals("Filled"))
+                return;
+        }
+        TradeWorkflow.setSellOrdersExecuted(true);
+        System.out.println("First time that orderStatus() is called and all sell orders are filled. counter = " + counter);
 
-        boolean startBuying = true;
-        for(Integer id : TradeWorkflow.getSellOrderStatuses().keySet()){
-            if(!TradeWorkflow.getSellOrderStatuses().get(i).equals("Filled")){
-                startBuying = false;
-            }
+        if(!TradeWorkflow.isBuyOrdersExecuted()) {
+            flushTradingWorkflowQueues();
+            System.out.println("I'm buying now at counter = " + counter);
+            TradeWorkflow.buyPositions();
+            System.out.println("Buy orders should have been placed now");
+            flushTradingWorkflowQueues();
+            return;
         }
 
-        if(startBuying) {
-            System.out.println("I'd start buying now");
-            // TODO: put rest of workflow here
-        }
-
-        for(Integer orderId : TradeWorkflow.getOrderStatuses().keySet()){
-            if(!TradeWorkflow.getOrderStatuses().get(orderId).equals("Filled"))
+        for(Integer orderId : TradeWorkflow.getBuyOrderStatuses().keySet()){
+            if(!TradeWorkflow.getBuyOrderStatuses().get(orderId).equals("Filled"))
                 return;
         }
 
-        TradeWorkflow.writeBalanceFile();
+        if (TradeWorkflow.getRunning()) {
+            System.out.println("All buy orders filled. Stopping workflow now.");
+            finishTradingWorkflow(null);
+        }
+    }
 
-        TradeWorkflow.LogQueue.add("Orders have successfully been filled");
+    public static void finishTradingWorkflow(String errormessage) {
+        TradeWorkflow.setRunning(false);
+        TradeWorkflow.writeBalanceFile();
+        if (errormessage != null) {
+            TradeWorkflow.LogQueue.add("Error occured in workflow: " + errormessage);
+            TradeWorkflow.LogQueue.add("Aborting workflow prematurely");
+            TradeWorkflow.LogQueue.add("------------------------------------------------------------------");
+            sendMail("RST: Summary " + toDate(), createTradeWorkflowSummary());
+            flushTradingWorkflowQueues();
+            return;
+        }
+        TradeWorkflow.LogQueue.add("All orders (if any) have successfully been filled");
         TradeWorkflow.LogQueue.add("Sending summary per email");
         TradeWorkflow.LogQueue.add("TradeWorkflow finished");
         TradeWorkflow.LogQueue.add("------------------------------------------------------------------");
         sendMail("RST: Summary " + toDate(), createTradeWorkflowSummary());
-
-        TradeWorkflow.getOrderStatuses().clear();
-        getHeldPositions();
+        flushTradingWorkflowQueues();
+        mainController.updateUI();
     }
 
     private void getHeldPositions() {
         if (connectedToTWS) {
             TradeWorkflow.clearCurrentlyHeldPositions();
             clientSocket.reqAccountUpdates(true, ACCOUNT_ID);
-            try {
+            /*try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
-            }
+            }*/
             clientSocket.reqAccountUpdates(false, ACCOUNT_ID);
+
+
+            //DEBUG: see how this operates
+            clientSocket.reqPositions();
         }
-        Platform.runLater(this::flushTradingWorkflowQueues);
+        flushTradingWorkflowQueues();
     }
 
     @Override
@@ -575,23 +623,24 @@ public class MainController implements EWrapper, EnvironmentAware {
 
     @Override
     public void updateAccountValue(String s, String s1, String s2, String s3) {
-        //System.out.println("updateAccountValue: " + s + ", value: " + s1 + " " + s2);
-
+        //System.out.println("I'm in updateAccountValue()");
+        //flushTradingWorkflowQueues();
         if (s.equals("NetLiquidation")) {
             currentNetLiquidationValue = Double.parseDouble(s1);
             TradeWorkflow.setAccountCurrency(s2);
             log(LogLevel.BOTH, s + " for " + s3 + " received: " + s1 + " " + s2);
+            System.out.println("NLV: " + s1);
         }
         log(LogLevel.FILE, s + " for [" + s3 + "] received: " + s1 + " " + s2);
     }
 
     @Override
     public void updatePortfolio(Contract contract, double v, double v1, double v2, double v3, double v4, double v5, String s) {
-
+        //System.out.println("I'm in updatePortfolio()");
         if (v != 0) {
             TradeWorkflow.getCurrentlyHeldPositions().add(new Position(contract, v, v1, v2, v3, v4, v5, s));
         }
-        TradeWorkflow.LogQueue.add("Position in [" + contract.symbol() + "] of [" + (int) v + "] shares of account [" + s + "] received");
+        TradeWorkflow.LogQueue.add("Position in [" + contract.symbol() + "] of [" + (int) v + "] shares of account [" + s + "] received from TWS");
     }
 
     @Override
@@ -601,61 +650,38 @@ public class MainController implements EWrapper, EnvironmentAware {
 
     @Override
     public void accountDownloadEnd(String s) {
+        System.out.println("I'm in accountDownloadEnd()");
+        mainController.updateUI();
+
         // fill the missing positions with cash
         while (TradeWorkflow.getCurrentlyHeldPositions().size() < NUMBER_OF_POSITIONS_TO_HOLD) {
-            TradeWorkflow.getCurrentlyHeldPositions().add(new Position());
+            TradeWorkflow.getCurrentlyHeldPositions().add(new Position()); // fill with CASH positions
         }
 
         if (TradeWorkflow.getRunning()) {
             TradeWorkflow.readSignalsFromFile();
             if(TradeWorkflow.signals.size() != MainController.NUMBER_OF_POSITIONS_TO_HOLD) {
-
-                TradeWorkflow.setRunning(false);
-
                 TradeWorkflow.LogQueue.add("Sending mail with error");
                 sendMail("RST: error occurred", "Number of signals [" + TradeWorkflow.signals.size()
                         +"] does not match with positions to hold [" + MainController.NUMBER_OF_POSITIONS_TO_HOLD +
                         "] in properties file. Please correct either one, so they match. Then restart the workflow manually.");
-
-                TradeWorkflow.LogQueue.add("Sending summary per email");
-                TradeWorkflow.LogQueue.add("TradeWorkflow aborted");
-                TradeWorkflow.LogQueue.add("------------------------------------------------------------------");
-                sendMail("RST: Summary " + toDate(), createTradeWorkflowSummary());
+                finishTradingWorkflow("RST: error occurred: Number of signals [" + TradeWorkflow.signals.size()
+                        +"] does not match with positions to hold [" + MainController.NUMBER_OF_POSITIONS_TO_HOLD +
+                        "] in properties file. Please correct either one, so they match. Then restart the workflow manually.");
                 flushTradingWorkflowQueues();
                 return;
             }
             TradeWorkflow.determineBuysAndSells();
-            TradeWorkflow.requestMarketDataForUsedSymbols();
-
-            // wait, so market data requests register with TWS
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+            if (TradeWorkflow.positionsToSell.isEmpty() && TradeWorkflow.signalsToBuy.isEmpty()) {
+                finishTradingWorkflow(null);
+                return;
             }
-
-            TradeWorkflow.sellPositions();
-
-            // TODO: this goes into orderStatus()
+            //TradeWorkflow.requestMarketDataForUsedSymbols(); // only so TWS doesn't block trades (I believe)
             TradeWorkflow.acquireMarketData();
-            TradeWorkflow.buyPositions();
-            TradeWorkflow.setRunning(false);
-
-            // TODO: this probably goes into determineBuysAndSells and checks if the lists are empty
-            // don't want to do any refactoring now since it's too late in the day
-            if(TradeWorkflow.getOrderIdToSmybol().isEmpty()){
-                TradeWorkflow.writeBalanceFile();
-                TradeWorkflow.LogQueue.add("No orders need to be filled");
-                TradeWorkflow.LogQueue.add("Sending summary per email");
-                TradeWorkflow.LogQueue.add("TradeWorkflow finished");
-                TradeWorkflow.LogQueue.add("------------------------------------------------------------------");
-            }
-
-            sendMail("RST: Summary " + toDate(), createTradeWorkflowSummary());
+            TradeWorkflow.sellPositions();
             flushTradingWorkflowQueues();
         }
-
-        Platform.runLater(this::updateUI);
+        updateUI();
     }
 
     @Override
@@ -663,10 +689,9 @@ public class MainController implements EWrapper, EnvironmentAware {
         log(LogLevel.GUI, "TWS connection established");
         log(LogLevel.FILE, "TWS connection established");
         connectedToTWS = true;
-        Platform.runLater(this::updateUI);
+        updateUI();
         nextValidOrderID = i;
         System.out.println("nextValidId: " + i);
-        //}
     }
 
     @Override
@@ -776,12 +801,13 @@ public class MainController implements EWrapper, EnvironmentAware {
 
     @Override
     public void position(String s, Contract contract, double v, double v1) {
-
+        System.out.println("position(): received position " + contract.symbol() +
+                " of " + v + " shares for avg cost " + v1);
     }
 
     @Override
     public void positionEnd() {
-
+        System.out.println("positionEnd(): all positions have been sent");
     }
 
     @Override
@@ -841,7 +867,7 @@ public class MainController implements EWrapper, EnvironmentAware {
 
         switch (i1) {
             case 200:
-                log(LogLevel.BOTH, "Symbol is ambiguous and couldn't be resolved. Order may not have been filled.");
+                log(LogLevel.BOTH, "Error 200: Symbol is ambiguous and couldn't be resolved. Order may not have been filled.");
                 log(LogLevel.BOTH, i + " Error " + i1 + "; " + s);
                 log(LogLevel.BOTH, "Sending mail with error to " + MAIL_RECIPIENT );
                 sendMail("RST: error occurred", s + " Trade was not executed.\n" +
@@ -855,40 +881,79 @@ public class MainController implements EWrapper, EnvironmentAware {
 
                 TradeWorkflow.getOrderStatuses().clear();
 
+
                 getHeldPositions();
                 break;
-            //Order rejected - reason:Your order is not accepted because your Equity with Loan Value of
-            // [xx USD] is insufficient to cover the Initial Margin requirement of [xx USD]
             case 201:
-                //TODO: not sure what to do besides sending email
+                //Order rejected - reason:Your order is not accepted because your Equity with Loan Value of
+                // [xx USD] is insufficient to cover the Initial Margin requirement of [xx USD]
                 log(LogLevel.BOTH, "Error " + i1 + "; " + s);
                 log(LogLevel.BOTH, "Sending mail with error to " + MAIL_RECIPIENT );
+                cancelAllOrders();
                 sendMail("RST: error occurred", s);
+                flushTradingWorkflowQueues();
                 break;
-            // not connected
+
             case 504:
-                log(LogLevel.BOTH, s);
+                // not connected
+                log(LogLevel.BOTH, i + " Error " + i1 + "; " + s);
                 break;
-            // connection failed
+
             case 507:
+                // connection failed
                 log(LogLevel.BOTH, "Error " + i1 + "; connection to TWS lost/failed or tried to connect when already connected");
+                flushTradingWorkflowQueues();
                 break;
-            // market data farm
+
             case 2104:
+                // market data farm
+                log(LogLevel.BOTH, i + " Error " + i1 + "; " + s);
+                flushTradingWorkflowQueues();
+                break;
             case 2106:
-                log(LogLevel.BOTH, s);
+                log(LogLevel.BOTH, i + " Error " + i1 + "; " + s);
+                flushTradingWorkflowQueues();
                 break;
-            // "API client has been unsubscribed from account data."
+
+            case 2108:
+                // Error 2108; Market data farm connection is inactive but should be available upon demand.cashfarm
+                log(LogLevel.BOTH, i + " Error " + i1 + "; " + s);
+                flushTradingWorkflowQueues();
+                break;
+
             case 2100:
+                // "API client has been unsubscribed from account data."
+                log(LogLevel.BOTH, i + " Error (no real error) " + i1 + "; " + s);
+                flushTradingWorkflowQueues();
                 break;
-            // close to margin call (5%) due to high leverage
+
             case 2148:
-                // TODO: finish workflow properly with endWorkflow method
+                // close to margin call (5%) due to high leverage
+                finishTradingWorkflow(i + ", " + i1 + ", " +s);
+                cancelAllOrders();
+                log(LogLevel.BOTH, i + " Error " + i1 + "; " + s);
+                flushTradingWorkflowQueues();
+                break;
+
+            case 2158:
+                // "Error 2158; Sec-def data farm connection is OK:secdefnj"
+                log(LogLevel.BOTH, i + " Error " + i1 + "; " + s);
+                flushTradingWorkflowQueues();
+                break;
+
             case 202:
+                // Order cancelled (by user - maybe for other reasons as well)
+                finishTradingWorkflow(i + ", " + i1 + ", " +s);
+                cancelAllOrders(); // cancel all remaining orders to have clean state for next run
+                log(LogLevel.BOTH, i + " Error " + i1 + "; " + s);
+                flushTradingWorkflowQueues();
+                break;
+
             default:
-                log(LogLevel.BOTH, "Error " + i1 + "; " + s);
+                log(LogLevel.BOTH, i + " Error " + i1 + "; " + s);
                 log(LogLevel.BOTH, "Sending mail with error to " + MAIL_RECIPIENT );
                 sendMail("RST: error occurred", s);
+                flushTradingWorkflowQueues();
                 break;
         }
 
@@ -1060,6 +1125,14 @@ public class MainController implements EWrapper, EnvironmentAware {
     @Override
     public void tickByTickMidPoint(int i, long l, double v) {
 
+    }
+
+    public static MainController getMainController() {
+        return mainController;
+    }
+
+    public static void setMainController(MainController mainController) {
+        MainController.mainController = mainController;
     }
 
 

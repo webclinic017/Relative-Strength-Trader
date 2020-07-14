@@ -67,12 +67,12 @@ public class Main extends Application {
         controller = loader.getController();
         controller.setMain(this);
         controller.initialize();
+        controller.setMainController(controller);
 
-        primaryStage.setTitle("RST v0.0.8");
+        primaryStage.setTitle("RST v0.0.9");
         primaryStage.setScene(new Scene(root,700,530));
         primaryStage.setResizable(false);
         primaryStage.show();
-
     }
 
 }
