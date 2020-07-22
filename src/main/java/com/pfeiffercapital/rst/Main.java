@@ -35,7 +35,7 @@ public class Main extends Application {
                 Thread.sleep(1000);
                 controller.buttonTradeLiveClick();
                 Thread.sleep(1000);
-                //controller.buttonRequestUpdateClick();
+                controller.buttonRequestUpdateClick();
                 controller.updateUI();
             } catch (InterruptedException e) {
                 e.printStackTrace();

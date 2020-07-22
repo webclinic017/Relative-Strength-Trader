@@ -12,6 +12,8 @@ import org.json.JSONObject;
 
 import java.io.*;
 import java.net.*;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -33,6 +35,7 @@ public class TradeWorkflow implements Runnable {
 
     private static MainController mainController;
     static ArrayList<String> LogQueue = new ArrayList<>();
+    static ArrayList<String> MailQueue = new ArrayList<>();
     private static boolean active = false;
     private static boolean running = false;
 
@@ -64,8 +67,9 @@ public class TradeWorkflow implements Runnable {
         if (running == true) {
             mainController.cancelAllOrders();
             MainController.finishTradingWorkflow("The next workflow execution was triggered while the old wasn't finished yet." +
-                    "Cancelled all open orders and end workflow early...");
-            MainController.flushTradingWorkflowQueues();
+                    " Cancelled all open orders and end workflow early...");
+            //MainController.flushTradingWorkflowQueues();
+
             try {
                 Thread.sleep(5000);
             } catch (InterruptedException e) {
@@ -73,10 +77,19 @@ public class TradeWorkflow implements Runnable {
             }
         }
         if (active) {
+            mainController.buttonStartWorkflow.setDisable(true);
+            System.out.println("------------------------------------------------------------------");
+            System.out.println("TradeWorkflow started");
+
+            readSignalsFromFile();
+            mainController.updateUI();
+
             running = true;
 
             LogQueue.add("------------------------------------------------------------------");
             LogQueue.add("TradeWorkflow started");
+            LogQueue.add("Balance (NLV): " + MainController.currentNetLiquidationValue + " USD");
+            LogQueue.add("Leverage: " + MainController.LEVERAGE);
 
             setSellOrdersExecuted(false);
             setBuyOrdersExecuted(false);
@@ -193,9 +206,11 @@ public class TradeWorkflow implements Runnable {
                         pos.getContract().exchange("SMART");
                         break;
                 }
-                int id = checkIfSignalAmbiguous(pos.getSymbol());
-                if(id != 0){
-                    pos.getContract().conid(id);
+                if (MainController.USE_AMBIGUOUS_SYMBOL_RESOLUTION) {
+                    int id = checkIfSignalAmbiguous(pos.getSymbol());
+                    if(id != 0){
+                        pos.getContract().conid(id);
+                    }
                 }
                 pos.getContract().secType(Types.SecType.STK);
                 MainController.clientSocket.reqMktData(++MainController.nextValidOrderID, pos.getContract(), "", false, false, null);
@@ -207,20 +222,22 @@ public class TradeWorkflow implements Runnable {
         for(String signal : signalsToBuy){
             Contract con = new Contract();
             con.symbol(signal);
-            int id = checkIfSignalAmbiguous(signal);
-            if(id != 0){
-                con.conid(id);
-            }
-            switch (signal){
-                case "SCO":
-                    con.exchange("ARCA");
-                    break;
-                //case "MSFT":
-                //    con.exchange("NASDAQ");
-                //    break;
-                default:
-                    con.exchange("NASDAQ");
-                    break;
+            if (MainController.USE_AMBIGUOUS_SYMBOL_RESOLUTION) {
+                int id = checkIfSignalAmbiguous(signal);
+                if (id != 0) {
+                    con.conid(id);
+                }
+                switch (signal) {
+                    case "SCO":
+                        con.exchange("ARCA");
+                        break;
+                    //case "MSFT":
+                    //    con.exchange("NASDAQ");
+                    //    break;
+                    default:
+                        con.exchange("NASDAQ");
+                        break;
+                }
             }
             con.secType(Types.SecType.STK);
             MainController.clientSocket.reqMktData(++MainController.nextValidOrderID, con, "", true, false, null);
@@ -369,10 +386,12 @@ public class TradeWorkflow implements Runnable {
             contract.exchange("SMART");
             contract.symbol(signal);
 
-            int id = checkIfSignalAmbiguous(signal);
-            if(id != 0){
-                contract.symbol("");
-                contract.conid(id);
+            if (MainController.USE_AMBIGUOUS_SYMBOL_RESOLUTION) {
+                int id = checkIfSignalAmbiguous(signal);
+                if(id != 0){
+                    contract.symbol("");
+                    contract.conid(id);
+                }
             }
 
             MainController.clientSocket.placeOrder(++MainController.nextValidOrderID, contract, order);
@@ -469,6 +488,12 @@ public class TradeWorkflow implements Runnable {
 
 
     public static void writeBalanceFile() {
+        //DEBUG
+        //if (true) {
+        //    return;
+        //}
+
+
         System.out.println("I'm in writeBalanceFile()");
 
         LogQueue.add("Updating balance file...");
@@ -504,8 +529,52 @@ public class TradeWorkflow implements Runnable {
             }
         }
 
-        String line = String.valueOf(MainController.currentNetLiquidationValue);
-        LogQueue.add("Balance hasn't been written [to be implemented]");
+        String NLV = String.valueOf(MainController.currentNetLiquidationValue);
+
+        // count lines in file for index of new entry
+        int lines = 0;
+        try {
+            reader = new BufferedReader(new FileReader(MainController.BALANCEFILE_PATH + "balance_" +
+                    MainController.ACCOUNT_ID + ".csv"));
+
+            while (reader.readLine() != null) lines++;
+            reader.close();
+        } catch (Exception e) {}
+
+
+
+        Date date = new Date();
+        BufferedWriter writer = null;
+        try {
+            writer = new BufferedWriter(new FileWriter(MainController.BALANCEFILE_PATH + "balance_" +
+                    MainController.ACCOUNT_ID + ".csv", true));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        try {
+            writer.append(NLV);
+            writer.append('\n');
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            writer = new BufferedWriter(new FileWriter(MainController.BALANCEFILE_PATH + "balance_" +
+                    MainController.ACCOUNT_ID + "_with_dates.csv", true));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        DateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
+        try {
+            writer.append(lines + "," + dateFormat.format(date) + "," + NLV);
+            writer.append('\n');
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        LogQueue.add("Balance files have been written. See folder 'account_balance_files'");
     }
 
 
